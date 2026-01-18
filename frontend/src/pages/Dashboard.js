@@ -52,7 +52,7 @@ const Dashboard = ({ user }) => {
   const handleDownload = async (qrId, name) => {
     try {
       const token = localStorage.getItem('session_token');
-      const response = await axios.get(`${API}/qr-codes/${qrId}/image`, {
+      const response = await axios.get(`${API}/public/qr/${qr.qr_id}/image?sig=${qr.signature}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });

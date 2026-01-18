@@ -140,13 +140,14 @@ class CheckoutRequest(BaseModel):
     origin_url: str
 
 # ========== AUTH HELPERS ==========
-def sign_qr_image(qr_id: str, user_id: str) -> str:
-    msg = f"{qr_id}:{user_id}".encode()
+def sign_qr_image(qr_id: str, user_id: str, updated_at: str) -> str:
+    msg = f"{qr_id}:{user_id}:{updated_at}".encode()
     return hmac.new(
         IMAGE_SIGN_SECRET.encode(),
         msg,
         hashlib.sha256
     ).hexdigest()
+
 
 
 def hash_password(password: str) -> str:
@@ -551,7 +552,12 @@ async def get_qr_codes(user: dict = Depends(get_current_user)):
     # Convert dates
     for qr in qr_codes:
 
-        qr["signature"] = sign_qr_image(qr["qr_id"], qr["user_id"])
+        qr["signature"] = sign_qr_image(
+    qr["qr_id"],
+    qr["user_id"],
+    qr["updated_at"]
+)
+
 
         if isinstance(qr["created_at"], str):
             qr["created_at"] = datetime.fromisoformat(qr["created_at"])
@@ -615,7 +621,7 @@ async def delete_qr_code(qr_id: str, user: dict = Depends(get_current_user)):
     return {"message": "QR code deleted"}
 
 @api_router.get("/qr-codes/{qr_id}/image")
-async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get_user_from_cookie)):
+async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get_current_user)):
     qr = await db.qr_codes.find_one({"qr_id": qr_id, "user_id": user["user_id"]}, {"_id": 0})
     if not qr:
         raise HTTPException(status_code=404, detail="QR code not found")
@@ -657,7 +663,12 @@ async def public_qr_image(qr_id: str, sig: str):
     if not qr:
         raise HTTPException(status_code=404, detail="QR code not found")
 
-    expected_sig = sign_qr_image(qr_id, qr["user_id"])
+    expected_sig = sign_qr_image(
+    qr_id,
+    qr["user_id"],
+    qr["updated_at"]
+)
+
     if sig != expected_sig:
         raise HTTPException(status_code=401, detail="Invalid signature")
 

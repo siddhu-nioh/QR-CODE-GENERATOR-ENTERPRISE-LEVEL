@@ -41,7 +41,8 @@ db = client[os.environ['DB_NAME']]
 # JWT Secret
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')
 JWT_ALGORITHM = 'HS256'
-IMAGE_SIGN_SECRET = os.environ.get("JWT_SECRET", "qr-image-secret")
+IMAGE_SIGN_SECRET = os.environ.get("QR_IMAGE_SIGN_SECRET", "qr-image-secret")
+
 
 # Stripe
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
@@ -113,6 +114,7 @@ class QRCode(BaseModel):
     scan_count: int = 0
     created_at: datetime
     updated_at: datetime
+    signature: Optional[str] = None
 
 class ScanEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -550,7 +552,7 @@ async def get_qr_codes(user: dict = Depends(get_current_user)):
     for qr in qr_codes:
 
         qr["signature"] = sign_qr_image(qr["qr_id"], qr["user_id"])
-        
+
         if isinstance(qr["created_at"], str):
             qr["created_at"] = datetime.fromisoformat(qr["created_at"])
         if isinstance(qr["updated_at"], str):

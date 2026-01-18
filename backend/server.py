@@ -498,60 +498,101 @@ async def emergent_auth_session(request: Request, response: Response):
 
 # ========== QR CODE ROUTES ==========
 
+# @api_router.post("/qr-codes", response_model=QRCode)
+# async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current_user)):
+#     # Check plan limits
+#     plan = user.get("plan", "free")
+#     qr_count = user.get("qr_code_count", 0)
+    
+#     if plan == "free" and qr_count >= 5:
+#         raise HTTPException(status_code=403, detail="Free plan limit reached (5 QR codes)")
+    
+#     # if plan == "free" and qr_data.is_dynamic:
+#     #     raise HTTPException(status_code=403, detail="Dynamic QR codes are for paid plans only")
+    
+#     # Create QR
+#     qr_id = f"qr_{uuid.uuid4().hex[:12]}"
+#     redirect_token = f"r_{uuid.uuid4().hex[:8]}" if qr_data.is_dynamic else None
+#     # ✅ Backend-enforced dynamic logic (DO NOT TRUST FRONTEND)
+#     is_dynamic = False
+#     redirect_token = None
+
+#     if user.get("plan") != "free" and qr_data.is_dynamic:
+#         is_dynamic = True
+#         redirect_token = f"r_{uuid.uuid4().hex[:8]}"
+
+    
+#     qr_doc = {
+#         "qr_id": qr_id,
+#         "user_id": user["user_id"],
+#         "name": qr_data.name,
+#         "qr_type": qr_data.qr_type,
+#         "content": qr_data.content,
+#         "is_dynamic": is_dynamic,  
+#         "redirect_token": redirect_token,
+#         "design": qr_data.design,
+#         "scan_count": 0,
+#         "created_at": datetime.now(timezone.utc).isoformat(),
+#         "updated_at": datetime.now(timezone.utc).isoformat()
+#     }
+    
+#     await db.qr_codes.insert_one(qr_doc)
+    
+#     # Update user QR count
+#     await db.users.update_one(
+#         {"user_id": user["user_id"]},
+#         {"$inc": {"qr_code_count": 1}}
+#     )
+    
+#     # Return without _id
+#     qr_doc.pop("_id", None)
+#     if isinstance(qr_doc["created_at"], str):
+#         qr_doc["created_at"] = datetime.fromisoformat(qr_doc["created_at"])
+#     if isinstance(qr_doc["updated_at"], str):
+#         qr_doc["updated_at"] = datetime.fromisoformat(qr_doc["updated_at"])
+    
+#     return QRCode(**qr_doc)
+
 @api_router.post("/qr-codes", response_model=QRCode)
 async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current_user)):
-    # Check plan limits
     plan = user.get("plan", "free")
     qr_count = user.get("qr_code_count", 0)
-    
+
     if plan == "free" and qr_count >= 5:
-        raise HTTPException(status_code=403, detail="Free plan limit reached (5 QR codes)")
-    
-    # if plan == "free" and qr_data.is_dynamic:
-    #     raise HTTPException(status_code=403, detail="Dynamic QR codes are for paid plans only")
-    
-    # Create QR
+        raise HTTPException(status_code=403, detail="Free plan limit reached")
+
     qr_id = f"qr_{uuid.uuid4().hex[:12]}"
-    redirect_token = f"r_{uuid.uuid4().hex[:8]}" if qr_data.is_dynamic else None
-    # ✅ Backend-enforced dynamic logic (DO NOT TRUST FRONTEND)
-    is_dynamic = False
-    redirect_token = None
 
-    if user.get("plan") != "free" and qr_data.is_dynamic:
-        is_dynamic = True
-        redirect_token = f"r_{uuid.uuid4().hex[:8]}"
+    # ✅ BACKEND IS SOURCE OF TRUTH
+    is_dynamic = plan != "free"
+    redirect_token = f"r_{uuid.uuid4().hex[:8]}" if is_dynamic else None
 
-    
     qr_doc = {
         "qr_id": qr_id,
         "user_id": user["user_id"],
         "name": qr_data.name,
         "qr_type": qr_data.qr_type,
         "content": qr_data.content,
-        "is_dynamic": is_dynamic,  
+        "is_dynamic": is_dynamic,
         "redirect_token": redirect_token,
         "design": qr_data.design,
         "scan_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    
+
     await db.qr_codes.insert_one(qr_doc)
-    
-    # Update user QR count
+
     await db.users.update_one(
         {"user_id": user["user_id"]},
         {"$inc": {"qr_code_count": 1}}
     )
-    
-    # Return without _id
-    qr_doc.pop("_id", None)
-    if isinstance(qr_doc["created_at"], str):
-        qr_doc["created_at"] = datetime.fromisoformat(qr_doc["created_at"])
-    if isinstance(qr_doc["updated_at"], str):
-        qr_doc["updated_at"] = datetime.fromisoformat(qr_doc["updated_at"])
-    
+
+    qr_doc["created_at"] = datetime.fromisoformat(qr_doc["created_at"])
+    qr_doc["updated_at"] = datetime.fromisoformat(qr_doc["updated_at"])
+
     return QRCode(**qr_doc)
+
 
 @api_router.get("/qr-codes", response_model=List[QRCode])
 async def get_qr_codes(user: dict = Depends(get_current_user)):
@@ -948,24 +989,52 @@ async def create_checkout(
 #         "currency": status.currency
 #     }
 
+# @api_router.get("/billing/status/{session_id}")
+# async def checkout_status(
+#     session_id: str,
+#     user: dict = Depends(get_current_user)
+# ):
+#     session = stripe.checkout.Session.retrieve(session_id)
+
+#     if session.payment_status == "paid":
+#         await db.users.update_one(
+#             {"user_id": user["user_id"]},
+#             {"$set": {"plan": session.metadata["plan_name"]}}
+#         )
+
+#         await db.payment_transactions.update_one(
+#             {"session_id": session_id},
+#             {"$set": {
+#                 "payment_status": "paid",
+#                 "paid_at": datetime.now(timezone.utc).isoformat()
+#             }}
+#         )
+
+#     return {
+#         "status": session.status,
+#         "payment_status": session.payment_status
+#     }
+
 @api_router.get("/billing/status/{session_id}")
-async def checkout_status(
-    session_id: str,
-    user: dict = Depends(get_current_user)
-):
+async def checkout_status(session_id: str, user: dict = Depends(get_current_user)):
     session = stripe.checkout.Session.retrieve(session_id)
 
     if session.payment_status == "paid":
+        plan = session.metadata["plan_name"]
+        user_id = user["user_id"]
+
         await db.users.update_one(
-            {"user_id": user["user_id"]},
-            {"$set": {"plan": session.metadata["plan_name"]}}
+            {"user_id": user_id},
+            {"$set": {"plan": plan}}
         )
 
-        await db.payment_transactions.update_one(
-            {"session_id": session_id},
+        # ✅ FORCE UPGRADE OLD QRs
+        await db.qr_codes.update_many(
+            {"user_id": user_id, "is_dynamic": False},
             {"$set": {
-                "payment_status": "paid",
-                "paid_at": datetime.now(timezone.utc).isoformat()
+                "is_dynamic": True,
+                "redirect_token": f"r_{uuid.uuid4().hex[:8]}",
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }}
         )
 
@@ -973,7 +1042,6 @@ async def checkout_status(
         "status": session.status,
         "payment_status": session.payment_status
     }
-
 
 
 

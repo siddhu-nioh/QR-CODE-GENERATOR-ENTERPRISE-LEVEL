@@ -51,17 +51,17 @@ const Dashboard = ({ user }) => {
   };
 
 
-  const refreshUser = async () => {
-  const res = await axios.get(`${API}/auth/me`, {
-    withCredentials:true
-  });
-  console.log(res.data);
+//   const refreshUser = async () => {
+//   const res = await axios.get(`${API}/auth/me`, {
+//     withCredentials:true
+//   });
+//   console.log(res.data);
   
-};
+// };
 
-useEffect(() => {
-  refreshUser();
-}, []);
+// useEffect(() => {
+//   refreshUser();
+// }, []);
 
 
   const handleDownload = async (qrId, name) => {

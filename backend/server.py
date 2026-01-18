@@ -507,8 +507,8 @@ async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current
     if plan == "free" and qr_count >= 5:
         raise HTTPException(status_code=403, detail="Free plan limit reached (5 QR codes)")
     
-    if plan == "free" and qr_data.is_dynamic:
-        raise HTTPException(status_code=403, detail="Dynamic QR codes are for paid plans only")
+    # if plan == "free" and qr_data.is_dynamic:
+    #     raise HTTPException(status_code=403, detail="Dynamic QR codes are for paid plans only")
     
     # Create QR
     qr_id = f"qr_{uuid.uuid4().hex[:12]}"
@@ -975,38 +975,31 @@ async def checkout_status(
     }
 
 
+
+
 # @api_router.post("/webhook/stripe")
 # async def stripe_webhook(request: Request):
-#     """Handle Stripe webhooks"""
-#     body = await request.body()
-#     signature = request.headers.get("Stripe-Signature")
-    
-#     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
-    
+#     payload = await request.body()
+#     sig_header = request.headers.get("Stripe-Signature")
+
 #     try:
-#         webhook_response = await stripe_checkout.handle_webhook(body, signature)
-        
-#         if webhook_response.event_type == "checkout.session.completed":
-#             session_id = webhook_response.session_id
-#             metadata = webhook_response.metadata
-            
-#             # Update transaction
-#             await db.payment_transactions.update_one(
-#                 {"session_id": session_id},
-#                 {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
-#             )
-            
-#             # Update user plan
-#             if metadata and "user_id" in metadata and "plan_name" in metadata:
-#                 await db.users.update_one(
-#                     {"user_id": metadata["user_id"]},
-#                     {"$set": {"plan": metadata["plan_name"]}}
-#                 )
-        
-#         return {"status": "success"}
-#     except Exception as e:
-#         logger.error(f"Webhook error: {e}")
-#         raise HTTPException(status_code=400, detail="Webhook processing failed")
+#         event = stripe.Webhook.construct_event(
+#             payload, sig_header, STRIPE_WEBHOOK_SECRET
+#         )
+#     except Exception:
+#         raise HTTPException(status_code=400, detail="Invalid webhook")
+
+#     if event["type"] == "checkout.session.completed":
+#         session = event["data"]["object"]
+#         user_id = session["metadata"]["user_id"]
+#         plan = session["metadata"]["plan_name"]
+
+#         await db.users.update_one(
+#             {"user_id": user_id},
+#             {"$set": {"plan": plan}}
+#         )
+
+#     return {"status": "success"}
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
@@ -1025,12 +1018,29 @@ async def stripe_webhook(request: Request):
         user_id = session["metadata"]["user_id"]
         plan = session["metadata"]["plan_name"]
 
+        # ✅ 1. Update user plan
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {"plan": plan}}
         )
 
+        # ✅ 2. UPGRADE ALL EXISTING QRs TO DYNAMIC
+        await db.qr_codes.update_many(
+            {
+                "user_id": user_id,
+                "is_dynamic": False
+            },
+            {
+                "$set": {
+                    "is_dynamic": True,
+                    "redirect_token": f"r_{uuid.uuid4().hex[:8]}",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+
     return {"status": "success"}
+
 
 # ========== MAIN APP ==========
 

@@ -53,8 +53,10 @@ const Dashboard = ({ user }) => {
 
   const refreshUser = async () => {
   const res = await axios.get(`${API}/auth/me`, {
+    withCredentials:true
   });
-  setUser(res.data); // whatever state holds logged-in user
+  console.log(res.data);
+  
 };
 
 useEffect(() => {

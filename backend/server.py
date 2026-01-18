@@ -54,6 +54,7 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+allow_origins=os.environ.get('CORS_ORIGINS', '*').split(',')
 
 # ========== MODELS ==========
 
@@ -281,7 +282,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.send_text("Connected")
     await websocket.close()
 
-    
+
 @api_router.post("/auth/signup")
 async def signup(user_data: UserCreate):
     # Check if user exists
@@ -327,7 +328,8 @@ async def signup(user_data: UserCreate):
     }
 
 @api_router.post("/auth/login")
-async def login(credentials: UserLogin):
+async def login(credentials: UserLogin, response: Response):
+
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -344,6 +346,18 @@ async def login(credentials: UserLogin):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.user_sessions.insert_one(session_doc)
+
+
+    response.set_cookie(
+    key="session_token",
+    value=session_token,
+    httponly=True,
+    secure=True,          # REQUIRED for Vercel (HTTPS)
+    samesite="none",      # REQUIRED for cross-site
+    path="/",
+    max_age=7 * 24 * 60 * 60
+)
+
     
     return {
         "user": {

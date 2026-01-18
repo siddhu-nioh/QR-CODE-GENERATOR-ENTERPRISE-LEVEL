@@ -23,6 +23,7 @@ const Dashboard = ({ user }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setQrCodes(response.data);
+      console.log(response.data);
     } catch (error) {
       console.error('Error fetching QR codes:', error);
       toast.error('Failed to load QR codes');
@@ -48,6 +49,18 @@ const Dashboard = ({ user }) => {
       toast.error('Failed to delete QR code');
     }
   };
+
+
+  const refreshUser = async () => {
+  const res = await axios.get(`${API}/auth/me`, {
+  });
+  setUser(res.data); // whatever state holds logged-in user
+};
+
+useEffect(() => {
+  refreshUser();
+}, []);
+
 
   const handleDownload = async (qrId, name) => {
     try {

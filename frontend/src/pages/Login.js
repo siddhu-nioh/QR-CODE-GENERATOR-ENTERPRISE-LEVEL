@@ -32,6 +32,8 @@ const Login = () => {
     }
   };
 
+
+  
   const handleSignup = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -47,6 +49,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
 
   const handleGoogleLogin = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH

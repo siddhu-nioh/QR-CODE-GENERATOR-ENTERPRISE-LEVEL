@@ -513,6 +513,14 @@ async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current
     # Create QR
     qr_id = f"qr_{uuid.uuid4().hex[:12]}"
     redirect_token = f"r_{uuid.uuid4().hex[:8]}" if qr_data.is_dynamic else None
+    # ✅ Backend-enforced dynamic logic (DO NOT TRUST FRONTEND)
+    is_dynamic = False
+    redirect_token = None
+
+    if user.get("plan") != "free" and qr_data.is_dynamic:
+        is_dynamic = True
+        redirect_token = f"r_{uuid.uuid4().hex[:8]}"
+
     
     qr_doc = {
         "qr_id": qr_id,
@@ -520,7 +528,7 @@ async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current
         "name": qr_data.name,
         "qr_type": qr_data.qr_type,
         "content": qr_data.content,
-        "is_dynamic": qr_data.is_dynamic,
+        "is_dynamic": is_dynamic,  
         "redirect_token": redirect_token,
         "design": qr_data.design,
         "scan_count": 0,

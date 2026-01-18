@@ -230,6 +230,22 @@ END:VCARD"""
     else:
         return content.get("url", "")
 
+async def get_user_from_cookie(request: Request) -> dict:
+    token = request.cookies.get("session_token")
+    if not token:
+        raise HTTPException(status_code=401)
+
+    session = await db.user_sessions.find_one({"session_token": token})
+    if not session:
+        raise HTTPException(status_code=401)
+
+    user = await db.users.find_one({"user_id": session["user_id"]})
+    if not user:
+        raise HTTPException(status_code=404)
+
+    return user
+
+
 def create_qr_image(data: str, design: Optional[Dict[str, Any]] = None) -> bytes:
     """Generate QR code image with optional customization"""
     
@@ -582,7 +598,7 @@ async def delete_qr_code(qr_id: str, user: dict = Depends(get_current_user)):
     return {"message": "QR code deleted"}
 
 @api_router.get("/qr-codes/{qr_id}/image")
-async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get_current_user)):
+async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get_user_from_cookie)):
     qr = await db.qr_codes.find_one({"qr_id": qr_id, "user_id": user["user_id"]}, {"_id": 0})
     if not qr:
         raise HTTPException(status_code=404, detail="QR code not found")

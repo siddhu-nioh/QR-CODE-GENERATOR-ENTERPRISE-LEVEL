@@ -23,6 +23,33 @@ const BillingSuccess = ({ user }) => {
 
   //   checkPaymentStatus();
   // }, [sessionId, attempts]);
+  const checkPaymentStatus = useCallback(async () => {
+  if (attempts >= 5) {
+    setStatus('timeout');
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('session_token');
+    const response = await axios.get(
+      `${API}/billing/status/${sessionId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (response.data.payment_status === 'paid') {
+      setStatus('success');
+      toast.success('Payment successful!');
+    } else if (response.data.status === 'expired') {
+      setStatus('expired');
+    } else {
+      setTimeout(() => setAttempts(prev => prev + 1), 2000);
+    }
+  } catch (error) {
+    console.error('Error checking payment status:', error);
+    setStatus('error');
+  }
+}, [attempts, sessionId]);
+
 useEffect(() => {
   if (!sessionId) {
     navigate('/billing');
@@ -59,32 +86,7 @@ useEffect(() => {
   //     setStatus('error');
   //   }
   // };
-  const checkPaymentStatus = useCallback(async () => {
-  if (attempts >= 5) {
-    setStatus('timeout');
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem('session_token');
-    const response = await axios.get(
-      `${API}/billing/status/${sessionId}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.payment_status === 'paid') {
-      setStatus('success');
-      toast.success('Payment successful!');
-    } else if (response.data.status === 'expired') {
-      setStatus('expired');
-    } else {
-      setTimeout(() => setAttempts(prev => prev + 1), 2000);
-    }
-  } catch (error) {
-    console.error('Error checking payment status:', error);
-    setStatus('error');
-  }
-}, [attempts, sessionId]);
+  
 
 
   return (

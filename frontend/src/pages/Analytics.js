@@ -15,9 +15,7 @@ const Analytics = ({ user }) => {
   const [analytics, setAnalytics] = useState(null);
   const [qrData, setQrData] = useState(null);
 
-useEffect(() => {
-  fetchAnalytics();
-}, [fetchAnalytics]);
+
 
   // useEffect(() => {
   //   fetchAnalytics();
@@ -70,7 +68,9 @@ useEffect(() => {
   }
 }, [qrId, navigate]);
 
-
+useEffect(() => {
+  fetchAnalytics();
+}, [fetchAnalytics]);
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

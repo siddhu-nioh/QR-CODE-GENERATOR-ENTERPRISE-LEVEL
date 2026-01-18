@@ -13,9 +13,6 @@ const Billing = ({ user }) => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPlans();
-  }, []);
 
   const fetchPlans = async () => {
     try {
@@ -28,6 +25,10 @@ const Billing = ({ user }) => {
       setLoading(false);
     }
   };
+    useEffect(() => {
+    fetchPlans();
+  }, []);
+
 
   const handleUpgrade = async (planName) => {
     if (planName === 'free') {

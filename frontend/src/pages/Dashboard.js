@@ -14,9 +14,7 @@ const Dashboard = ({ user }) => {
   const [loading, setLoading] = useState(true);
  const [loadedImages, setLoadedImages] = useState({});
 
-  useEffect(() => {
-    fetchQRCodes();
-  }, []);
+
 
   const fetchQRCodes = async () => {
     try {
@@ -32,7 +30,9 @@ const Dashboard = ({ user }) => {
       setLoading(false);
     }
   };
-
+  useEffect(() => {
+    fetchQRCodes();
+  }, []);
   const handleDelete = async (qrId) => {
     if (!window.confirm('Are you sure you want to delete this QR code?')) return;
     

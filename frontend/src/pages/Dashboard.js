@@ -12,6 +12,7 @@ const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [qrCodes, setQrCodes] = useState([]);
   const [loading, setLoading] = useState(true);
+ const [loadedImages, setLoadedImages] = useState({});
 
   useEffect(() => {
     fetchQRCodes();
@@ -126,9 +127,29 @@ const Dashboard = ({ user }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {qrCodes.map((qr) => (
               <Card key={qr.qr_id} className="p-6 hover:shadow-lg transition-shadow" data-testid={`qr-card-${qr.qr_id}`}>
-                <div className="aspect-square bg-secondary rounded-lg mb-4 flex items-center justify-center">
+                {/* <div className="aspect-square bg-secondary rounded-lg mb-4 flex items-center justify-center">
                   <QrCodeIcon className="h-24 w-24 text-muted-foreground" />
-                </div>
+                </div> */}
+
+                <div className="relative aspect-square bg-secondary rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+  {/* Placeholder */}
+  {!loadedImages[qr.qr_id] && (
+    <QrCodeIcon className="h-20 w-20 text-muted-foreground animate-pulse absolute" />
+  )}
+
+  {/* Actual QR Image */}
+  <img
+    src={`${API}/qr-codes/${qr.qr_id}/image`}
+    alt={qr.name}
+    onLoad={() =>
+      setLoadedImages(prev => ({ ...prev, [qr.qr_id]: true }))
+    }
+    className={`w-full h-full object-contain transition-opacity duration-300 ${
+      loadedImages[qr.qr_id] ? 'opacity-100' : 'opacity-0'
+    }`}
+  />
+</div>
+
                 <h3 className="font-heading font-semibold text-lg mb-2" data-testid={`qr-name-${qr.qr_id}`}>{qr.name}</h3>
                 <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
                   <span className="capitalize">{qr.qr_type}</span>

@@ -1,2 +1,1 @@
-# QR CODE GENERATOR ENTERPRISE LEVEL
-
+# Here are your Instructions

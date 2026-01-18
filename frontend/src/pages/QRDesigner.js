@@ -19,28 +19,54 @@ const QRDesigner = ({ user }) => {
     background_color: '#FFFFFF'
   });
 
-  useEffect(() => {
-    fetchQRCode();
-  }, [qrId]);
+  // useEffect(() => {
+  //   fetchQRCode();
+  // }, [qrId]);
 
-  const fetchQRCode = async () => {
-    try {
-      const token = localStorage.getItem('session_token');
-      const response = await axios.get(`${API}/qr-codes/${qrId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setQrData(response.data);
-      if (response.data.design) {
-        setDesign(response.data.design);
-      }
-    } catch (error) {
-      console.error('Error fetching QR code:', error);
-      toast.error('Failed to load QR code');
-      navigate('/dashboard');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+  fetchQRCode();
+}, [fetchQRCode]);
+
+  // const fetchQRCode = async () => {
+  //   try {
+  //     const token = localStorage.getItem('session_token');
+  //     const response = await axios.get(`${API}/qr-codes/${qrId}`, {
+  //       headers: { Authorization: `Bearer ${token}` }
+  //     });
+  //     setQrData(response.data);
+  //     if (response.data.design) {
+  //       setDesign(response.data.design);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching QR code:', error);
+  //     toast.error('Failed to load QR code');
+  //     navigate('/dashboard');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+const fetchQRCode = useCallback(async () => {
+  try {
+    const token = localStorage.getItem('session_token');
+
+    const response = await axios.get(
+      `${API}/qr-codes/${qrId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    setQrData(response.data);
+
+    if (response.data.design) {
+      setDesign(response.data.design);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching QR code:', error);
+    toast.error('Failed to load QR code');
+    navigate('/dashboard');
+  } finally {
+    setLoading(false);
+  }
+}, [qrId, navigate]);
 
   const handleSave = async () => {
     try {

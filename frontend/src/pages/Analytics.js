@@ -15,33 +15,61 @@ const Analytics = ({ user }) => {
   const [analytics, setAnalytics] = useState(null);
   const [qrData, setQrData] = useState(null);
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [qrId]);
+useEffect(() => {
+  fetchAnalytics();
+}, [fetchAnalytics]);
 
-  const fetchAnalytics = async () => {
-    try {
-      const token = localStorage.getItem('session_token');
+  // useEffect(() => {
+  //   fetchAnalytics();
+  // }, [qrId]);
+
+  // const fetchAnalytics = async () => {
+  //   try {
+  //     const token = localStorage.getItem('session_token');
       
-      const [analyticsRes, qrRes] = await Promise.all([
-        axios.get(`${API}/qr-codes/${qrId}/analytics`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API}/qr-codes/${qrId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
+  //     const [analyticsRes, qrRes] = await Promise.all([
+  //       axios.get(`${API}/qr-codes/${qrId}/analytics`, {
+  //         headers: { Authorization: `Bearer ${token}` }
+  //       }),
+  //       axios.get(`${API}/qr-codes/${qrId}`, {
+  //         headers: { Authorization: `Bearer ${token}` }
+  //       })
+  //     ]);
 
-      setAnalytics(analyticsRes.data);
-      setQrData(qrRes.data);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      toast.error(error.response?.data?.detail || 'Failed to load analytics');
-      navigate('/dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     setAnalytics(analyticsRes.data);
+  //     setQrData(qrRes.data);
+  //   } catch (error) {
+  //     console.error('Error fetching analytics:', error);
+  //     toast.error(error.response?.data?.detail || 'Failed to load analytics');
+  //     navigate('/dashboard');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  const fetchAnalytics = useCallback(async () => {
+  try {
+    const token = localStorage.getItem('session_token');
+
+    const [analyticsRes, qrRes] = await Promise.all([
+      axios.get(`${API}/qr-codes/${qrId}/analytics`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }),
+      axios.get(`${API}/qr-codes/${qrId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+    ]);
+
+    setAnalytics(analyticsRes.data);
+    setQrData(qrRes.data);
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    toast.error(error.response?.data?.detail || 'Failed to load analytics');
+    navigate('/dashboard');
+  } finally {
+    setLoading(false);
+  }
+}, [qrId, navigate]);
+
 
   if (loading) {
     return (

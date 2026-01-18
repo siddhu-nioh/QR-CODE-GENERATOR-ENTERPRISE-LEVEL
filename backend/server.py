@@ -21,6 +21,9 @@ import io
 import segno
 # from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 import stripe
+import hmac
+import hashlib
+
 
 from fastapi import WebSocket
 
@@ -38,6 +41,7 @@ db = client[os.environ['DB_NAME']]
 # JWT Secret
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')
 JWT_ALGORITHM = 'HS256'
+IMAGE_SIGN_SECRET = os.environ.get("JWT_SECRET", "qr-image-secret")
 
 # Stripe
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
@@ -134,6 +138,14 @@ class CheckoutRequest(BaseModel):
     origin_url: str
 
 # ========== AUTH HELPERS ==========
+def sign_qr_image(qr_id: str, user_id: str) -> str:
+    msg = f"{qr_id}:{user_id}".encode()
+    return hmac.new(
+        IMAGE_SIGN_SECRET.encode(),
+        msg,
+        hashlib.sha256
+    ).hexdigest()
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -536,6 +548,9 @@ async def get_qr_codes(user: dict = Depends(get_current_user)):
     
     # Convert dates
     for qr in qr_codes:
+
+        qr["signature"] = sign_qr_image(qr["qr_id"], qr["user_id"])
+        
         if isinstance(qr["created_at"], str):
             qr["created_at"] = datetime.fromisoformat(qr["created_at"])
         if isinstance(qr["updated_at"], str):
@@ -631,6 +646,47 @@ async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get
         img_bytes = img_byte_arr.getvalue()
     
     return StreamingResponse(io.BytesIO(img_bytes), media_type="image/png")
+
+
+    
+@api_router.get("/public/qr/{qr_id}/image")
+async def public_qr_image(qr_id: str, sig: str):
+    qr = await db.qr_codes.find_one({"qr_id": qr_id}, {"_id": 0})
+    if not qr:
+        raise HTTPException(status_code=404, detail="QR code not found")
+
+    expected_sig = sign_qr_image(qr_id, qr["user_id"])
+    if sig != expected_sig:
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # Generate content
+    if qr["is_dynamic"]:
+        redirect_url = f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/r/{qr['redirect_token']}"
+        qr_content = redirect_url
+    else:
+        qr_content = generate_qr_content(qr["qr_type"], qr["content"])
+
+    img_bytes = create_qr_image(qr_content, qr.get("design"))
+
+    # Watermark for free plan
+    user_doc = await db.users.find_one({"user_id": qr["user_id"]}, {"_id": 0})
+    if user_doc and user_doc.get("plan") == "free":
+        img = Image.open(io.BytesIO(img_bytes))
+        draw = ImageDraw.Draw(img)
+        w, h = img.size
+        draw.text((w // 2 - 30, h - 20), "QRPlanet", fill="gray")
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        img_bytes = buf.getvalue()
+
+    return StreamingResponse(
+        io.BytesIO(img_bytes),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=3600"}
+    )
+
 
 # ========== DYNAMIC QR REDIRECT ==========
 

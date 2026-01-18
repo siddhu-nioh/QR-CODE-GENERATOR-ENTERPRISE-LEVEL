@@ -139,7 +139,7 @@ const Dashboard = ({ user }) => {
 
   {/* Actual QR Image */}
   <img
-    src={`${API}/qr-codes/${qr.qr_id}/image`}
+    src={`${API}/public/qr/${qr.qr_id}/image?sig=${qr.signature}`}
     alt={qr.name}
     onLoad={() =>
       setLoadedImages(prev => ({ ...prev, [qr.qr_id]: true }))

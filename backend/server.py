@@ -22,6 +22,9 @@ import segno
 # from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 import stripe
 
+from fastapi import WebSocket
+
+
 
 
 ROOT_DIR = Path(__file__).parent
@@ -272,7 +275,13 @@ def create_qr_image(data: str, design: Optional[Dict[str, Any]] = None) -> bytes
     return img_byte_arr.getvalue()
 
 # ========== AUTH ROUTES ==========
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    await websocket.send_text("Connected")
+    await websocket.close()
 
+    
 @api_router.post("/auth/signup")
 async def signup(user_data: UserCreate):
     # Check if user exists

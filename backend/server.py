@@ -848,16 +848,16 @@ async def create_checkout(
     user: dict = Depends(get_current_user)
 ):
     plan_prices = {
-        "starter": 9.99,      # $9.99
-        "pro": 29.99,         # $29.99
-        "enterprise": 99.99   # $99.99
+        "starter": 9.99,
+        "pro": 29.99,
+        "enterprise": 99.99
     }
 
     if checkout_req.plan_name not in plan_prices:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
     origin_url = checkout_req.origin_url
-    amount = plan_prices[checkout_req.plan_name]
+    amount = int(plan_prices[checkout_req.plan_name] * 100)  # ✅ cents
 
     try:
         session = stripe.checkout.Session.create(
@@ -869,7 +869,7 @@ async def create_checkout(
                     "product_data": {
                         "name": f"{checkout_req.plan_name.capitalize()} Plan"
                     },
-                    "unit_amount": amount,
+                    "unit_amount": amount,  # ✅ integer
                     "recurring": {"interval": "month"}
                 },
                 "quantity": 1
@@ -887,7 +887,7 @@ async def create_checkout(
             "user_id": user["user_id"],
             "session_id": session.id,
             "plan_name": checkout_req.plan_name,
-            "amount": amount / 100,
+            "amount": amount / 100,  # store dollars in DB
             "currency": "usd",
             "payment_status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -897,6 +897,7 @@ async def create_checkout(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # @api_router.get("/billing/status/{session_id}")
 # async def get_checkout_status(session_id: str, user: dict = Depends(get_current_user)):

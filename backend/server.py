@@ -50,6 +50,8 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 stripe.api_key = STRIPE_API_KEY
+# ================= REALTIME WS STORAGE =================
+active_connections: set[WebSocket] = set()
 
 # Create the main app
 app = FastAPI()
@@ -754,37 +756,43 @@ async def public_qr_image(qr_id: str, sig: str):
 
 @api_router.get("/r/{token}")
 async def redirect_qr(token: str, request: Request):
-    """Redirect endpoint for dynamic QR codes with analytics"""
-    qr = await db.qr_codes.find_one({"redirect_token": token}, {"_id": 0})
+    qr = await db.qr_codes.find_one(
+        {"redirect_token": token}, {"_id": 0}
+    )
+
     if not qr:
         raise HTTPException(status_code=404, detail="QR code not found")
-    
-    # Log scan event
+
     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
     user_agent = request.headers.get("user-agent", "")
-    
-    scan_doc = {
+
+    await db.scan_events.insert_one({
         "scan_id": scan_id,
         "qr_id": qr["qr_id"],
         "user_id": qr["user_id"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "device": "mobile" if "mobile" in user_agent.lower() else "desktop",
-        "browser": "unknown",
-        "os": "unknown",
-        "ip_address": request.client.host if request.client else None,
-        "country": None,
-        "city": None
-    }
-    
-    await db.scan_events.insert_one(scan_doc)
-    
-    # Increment scan count
-    await db.qr_codes.update_one({"qr_id": qr["qr_id"]}, {"$inc": {"scan_count": 1}})
-    
-    # Generate final URL
+        "ip_address": request.client.host if request.client else None
+    })
+
+    await db.qr_codes.update_one(
+        {"qr_id": qr["qr_id"]},
+        {"$inc": {"scan_count": 1}}
+    )
+
+    # ✅ REALTIME PUSH
+    for ws in list(active_connections):
+        try:
+            await ws.send_json({
+                "type": "qr_scan",
+                "qr_id": qr["qr_id"]
+            })
+        except:
+            active_connections.remove(ws)
+
     target_url = generate_qr_content(qr["qr_type"], qr["content"])
-    
     return RedirectResponse(url=target_url)
+
 
 # ========== ANALYTICS ROUTES ==========
 
@@ -1108,6 +1116,18 @@ async def stripe_webhook(request: Request):
         )
 
     return {"status": "success"}
+
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await ws.accept()
+    active_connections.add(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except:
+        pass
+    finally:
+        active_connections.remove(ws)
 
 
 # ========== MAIN APP ==========

@@ -71,6 +71,25 @@ const Analytics = ({ user }) => {
 useEffect(() => {
   fetchAnalytics();
 }, [fetchAnalytics]);
+
+
+ useEffect(() => {
+    fetchAnalytics();
+
+    // ✅ REALTIME SOCKET
+    const ws = new WebSocket("ws://localhost:8000/ws");
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "qr_scan" && data.qr_id === qrId) {
+        fetchAnalytics(); // 🔁 refresh analytics instantly
+      }
+    };
+
+    return () => ws.close();
+  }, [fetchAnalytics,qrId]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

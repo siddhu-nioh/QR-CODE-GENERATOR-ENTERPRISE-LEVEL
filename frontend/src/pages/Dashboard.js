@@ -23,7 +23,6 @@ const Dashboard = ({ user }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setQrCodes(response.data);
-      console.log(response.data);
     } catch (error) {
       console.error('Error fetching QR codes:', error);
       toast.error('Failed to load QR codes');
@@ -34,6 +33,26 @@ const Dashboard = ({ user }) => {
   useEffect(() => {
     fetchQRCodes();
   }, []);
+
+  
+  useEffect(() => {
+    // ✅ CONNECT TO BACKEND WEBSOCKET
+    const ws = new WebSocket("wss://https://qr-code-generator-enterprise-level.onrender.com/ws");
+    // for local:
+    // const ws = new WebSocket("ws://localhost:8000/ws");
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "qr_scan") {
+        console.log("QR scanned:", data.qr_id);
+        fetchQRCodes(); // 🔁 refresh data in real-time
+      }
+    };
+
+    return () => ws.close();
+  }, []);
+
   const handleDelete = async (qrId) => {
     if (!window.confirm('Are you sure you want to delete this QR code?')) return;
     
@@ -50,24 +69,10 @@ const Dashboard = ({ user }) => {
     }
   };
 
-
-//   const refreshUser = async () => {
-//   const res = await axios.get(`${API}/auth/me`, {
-//     withCredentials:true
-//   });
-//   console.log(res.data);
-  
-// };
-
-// useEffect(() => {
-//   refreshUser();
-// }, []);
-
-
   const handleDownload = async (qrId, name) => {
     try {
       const token = localStorage.getItem('session_token');
-      const response = await axios.get(`${API}/public/qr/${qr.qr_id}/image?sig=${qr.signature}`, {
+      const response = await axios.get(`${API}/qr-codes/${qrId}/image`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });

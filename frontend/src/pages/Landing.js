@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { QrCode, Zap, BarChart3, Palette, Download, Shield, ArrowRight, Check, Link as LinkIcon, Mail, Phone, MessageSquare, Wifi, User, FileText, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/Navbar';
+import TrustedByCarousel from '@/components/TrustedByCarousel';
 
 const Landing = ({user}) => {
   const navigate = useNavigate();
@@ -265,7 +266,7 @@ const Landing = ({user}) => {
                     transition={{ duration: 0.3, delay: idx * 0.05 }}
                     viewport={{ once: true }}
                   >
-                    <Card className="p-4 text-center hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group">
+                    <Card className="p-3 text-center hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group">
                       <Icon className="h-8 w-8 mx-auto mb-2 text-primary group-hover:scale-110 transition-transform" />
                       <h3 className="font-semibold text-sm mb-1">{type.title}</h3>
                       <p className="text-xs text-muted-foreground">{type.description}</p>
@@ -379,7 +380,7 @@ const Landing = ({user}) => {
       </section>
 
       {/* Trusted By Section */}
-      <section className="py-16 bg-background">
+      {/* <section className="py-16 bg-background">
         <div className="container mx-auto px-4 md:px-8 lg:px-12">
           <div className="max-w-7xl mx-auto">
             <p className="text-center text-sm text-muted-foreground mb-8">
@@ -394,7 +395,8 @@ const Landing = ({user}) => {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
+      <TrustedByCarousel/>
 
       {/* Testimonials Carousel */}
       <section className="py-20 bg-gradient-to-b from-secondary/20 to-background">

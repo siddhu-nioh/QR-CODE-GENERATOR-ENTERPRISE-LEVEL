@@ -23,7 +23,8 @@ import segno
 import stripe
 import hmac
 import hashlib
-
+# from fastapi.responses import RedirectResponse
+from urllib.parse import quote
 
 from fastapi import WebSocket
 
@@ -800,6 +801,48 @@ async def public_qr_image(qr_id: str, sig: str):
 
 # ========== DYNAMIC QR REDIRECT ==========
 
+# @api_router.get("/r/{token}")
+# async def redirect_qr(token: str, request: Request):
+#     qr = await db.qr_codes.find_one(
+#         {"redirect_token": token}, {"_id": 0}
+#     )
+
+#     if not qr:
+#         raise HTTPException(status_code=404, detail="QR code not found")
+
+#     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
+#     user_agent = request.headers.get("user-agent", "")
+
+#     await db.scan_events.insert_one({
+#         "scan_id": scan_id,
+#         "qr_id": qr["qr_id"],
+#         "user_id": qr["user_id"],
+#         "timestamp": datetime.now(timezone.utc).isoformat(),
+#         "device": "mobile" if "mobile" in user_agent.lower() else "desktop",
+#         "ip_address": request.client.host if request.client else None
+#     })
+
+#     await db.qr_codes.update_one(
+#         {"qr_id": qr["qr_id"]},
+#         {"$inc": {"scan_count": 1}}
+#     )
+
+#     # ✅ REALTIME PUSH
+#     for ws in list(active_connections):
+#         try:
+#             await ws.send_json({
+#                 "type": "qr_scan",
+#                 "qr_id": qr["qr_id"]
+#             })
+#         except:
+#             active_connections.remove(ws)
+
+#     target_url = generate_qr_content(qr["qr_type"], qr["content"])
+#     return RedirectResponse(url=target_url)
+
+
+# ========== DYNAMIC QR REDIRECT ==========
+
 @api_router.get("/r/{token}")
 async def redirect_qr(token: str, request: Request):
     qr = await db.qr_codes.find_one(
@@ -809,6 +852,7 @@ async def redirect_qr(token: str, request: Request):
     if not qr:
         raise HTTPException(status_code=404, detail="QR code not found")
 
+    # ================= ANALYTICS =================
     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
     user_agent = request.headers.get("user-agent", "")
 
@@ -826,7 +870,7 @@ async def redirect_qr(token: str, request: Request):
         {"$inc": {"scan_count": 1}}
     )
 
-    # ✅ REALTIME PUSH
+    # ================= REALTIME PUSH =================
     for ws in list(active_connections):
         try:
             await ws.send_json({
@@ -836,8 +880,77 @@ async def redirect_qr(token: str, request: Request):
         except:
             active_connections.remove(ws)
 
-    target_url = generate_qr_content(qr["qr_type"], qr["content"])
-    return RedirectResponse(url=target_url)
+    # ================= REDIRECT LOGIC =================
+    qr_type = qr["qr_type"]
+    content = qr["content"]
+
+    # URL
+    if qr_type == "url":
+        return RedirectResponse(content.get("url"))
+
+    # TEXT
+    if qr_type == "text":
+        text = quote(content.get("text", ""))
+        return RedirectResponse(f"data:text/plain,{text}")
+
+    # PHONE
+    if qr_type == "phone":
+        return RedirectResponse(f"tel:{content.get('phone','')}")
+
+    # EMAIL
+    if qr_type == "email":
+        return RedirectResponse(
+            f"mailto:{content.get('email','')}?"
+            f"subject={quote(content.get('subject',''))}&"
+            f"body={quote(content.get('body',''))}"
+        )
+
+    # SMS
+    if qr_type == "sms":
+        return RedirectResponse(
+            f"sms:{content.get('phone','')}?"
+            f"body={quote(content.get('message',''))}"
+        )
+
+    # WHATSAPP
+    if qr_type == "whatsapp":
+        return RedirectResponse(
+            f"https://wa.me/{content.get('phone','')}?"
+            f"text={quote(content.get('message',''))}"
+        )
+
+    # WIFI
+    if qr_type == "wifi":
+        ssid = content.get("ssid", "")
+        password = content.get("password", "")
+        encryption = content.get("encryption", "WPA")
+        wifi_payload = f"WIFI:T:{encryption};S:{ssid};P:{password};;"
+        return RedirectResponse(f"data:text/plain,{quote(wifi_payload)}")
+
+    # VCARD
+    if qr_type == "vcard":
+        vcard = f"""BEGIN:VCARD
+VERSION:3.0
+FN:{content.get('name','')}
+TEL:{content.get('phone','')}
+EMAIL:{content.get('email','')}
+ORG:{content.get('company','')}
+URL:{content.get('website','')}
+END:VCARD"""
+        return RedirectResponse(f"data:text/vcard,{quote(vcard)}")
+
+    # LOCATION
+    if qr_type == "location":
+        lat = content.get("latitude")
+        lng = content.get("longitude")
+        return RedirectResponse(f"https://maps.google.com/?q={lat},{lng}")
+
+    # PAYMENT
+    if qr_type == "payment":
+        return RedirectResponse(content.get("payment_url"))
+
+    # FALLBACK
+    raise HTTPException(status_code=400, detail="Unsupported QR type")
 
 
 # ========== ANALYTICS ROUTES ==========

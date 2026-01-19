@@ -210,7 +210,7 @@ const Dashboard = ({ user }) => {
                   </Button>
                   {qr.is_dynamic && (
                     <Button size="sm" variant="outline" onClick={() => navigate(`/analytics/${qr.qr_id}`)} data-testid={`analytics-button-${qr.qr_id}`}>
-                      <BarChart className="h-4 w-4" />
+                      <BarChart  className="h-4 w-4" />
                     </Button>
                   )}
 

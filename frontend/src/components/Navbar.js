@@ -1,57 +1,4 @@
-// import React from 'react';
-// import { useNavigate } from 'react-router-dom';
-// import axios from 'axios';
-// import { API } from '../App';
-// import { Button } from './ui/button';
-// import { LogOut, QrCode } from 'lucide-react';
-// import { toast } from 'sonner';
-
-// const Navbar = ({ user }) => {
-//   const navigate = useNavigate();
-
-//   const handleLogout = async () => {
-//     try {
-//       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
-//       localStorage.removeItem('session_token');
-//       toast.success('Logged out successfully');
-//       navigate('/login');
-//     } catch (error) {
-//       console.error('Logout error:', error);
-//       toast.error('Logout failed');
-//     }
-//   };
-
-//   return (
-//     <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" data-testid="dashboard-navbar">
-//       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-//         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')} data-testid="nav-logo">
-//           <QrCode className="h-8 w-8 text-primary" />
-//           <span className="font-heading font-bold text-xl">QRPlanet</span>
-//         </div>
-
-//         <div className="flex items-center gap-4">
-//           {user && (
-//             <>
-//               <div className="text-sm">
-//                 <span className="text-muted-foreground">Plan: </span>
-//                 <span className="font-semibold capitalize text-primary" data-testid="user-plan">{user.plan}</span>
-//               </div>
-//               <Button variant="ghost" size="sm" onClick={() => navigate('/billing')} data-testid="billing-button">
-//                 Upgrade
-//               </Button>
-//               <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="logout-button">
-//                 <LogOut className="h-5 w-5" />
-//               </Button>
-//             </>
-//           )}
-//         </div>
-//       </div>
-//     </nav>
-//   );
-// };
-
-// export default Navbar;
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
@@ -70,6 +17,8 @@ const Navbar = ({ user }) => {
   const navigate = useNavigate();
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const dropdownRefs = useRef({});
+  const hideTimeoutRef = useRef(null);
 
   // Handle logout function from your original navbar
   const handleLogout = async () => {
@@ -116,6 +65,45 @@ const Navbar = ({ user }) => {
     { icon: FileText, label: 'Terms of Service', route: '/terms' },
   ];
 
+  // Improved hover handlers with delay
+  const handleMouseEnter = (dropdownName) => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    setActiveDropdown(dropdownName);
+  };
+
+  const handleMouseLeave = (dropdownName) => {
+    hideTimeoutRef.current = setTimeout(() => {
+      if (activeDropdown === dropdownName) {
+        setActiveDropdown(null);
+      }
+    }, 200); // 200ms delay before hiding
+  };
+
+  const handleDropdownMouseEnter = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  };
+
+  const handleDropdownMouseLeave = () => {
+    hideTimeoutRef.current = setTimeout(() => {
+      setActiveDropdown(null);
+    }, 200);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <>
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" data-testid="dashboard-navbar">
@@ -139,8 +127,9 @@ const Navbar = ({ user }) => {
             {/* Create QR Dropdown (Mega Menu) */}
             <div 
               className="relative group"
-              onMouseEnter={() => setActiveDropdown('create')}
-              onMouseLeave={() => setActiveDropdown(null)}
+              ref={el => dropdownRefs.current['create'] = el}
+              onMouseEnter={() => handleMouseEnter('create')}
+              onMouseLeave={() => handleMouseLeave('create')}
             >
               <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
                 <Sparkles className="h-4 w-4" />
@@ -150,7 +139,11 @@ const Navbar = ({ user }) => {
               
               {/* Mega Dropdown */}
               {activeDropdown === 'create' && (
-                <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-[42rem] bg-popover border rounded-xl shadow-xl p-6 animate-in fade-in slide-in-from-top-5 duration-500">
+                <div 
+                  className="absolute left-1/2 transform -translate-x-1/2 top-full mt-1 w-[42rem] bg-popover border rounded-xl shadow-xl p-6 animate-in fade-in-0 zoom-in-95 duration-200"
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2 mb-4">
                       <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -163,10 +156,10 @@ const Navbar = ({ user }) => {
                       <Link
                         key={type.label}
                         to={type.route}
-                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent group/card transition-all duration-200 hover:scale-[1.02]"
+                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent group/card transition-all duration-150 hover:scale-[1.02]"
                         onClick={() => setActiveDropdown(null)}
                       >
-                        <div className={`p-2 rounded-md ${type.color} group-hover/card:scale-110 transition-transform duration-200`}>
+                        <div className={`p-2 rounded-md ${type.color} group-hover/card:scale-110 transition-transform duration-150`}>
                           <type.icon className="h-5 w-5" />
                         </div>
                         <div>
@@ -192,8 +185,9 @@ const Navbar = ({ user }) => {
             {/* Features Dropdown */}
             <div 
               className="relative group"
-              onMouseEnter={() => setActiveDropdown('features')}
-              onMouseLeave={() => setActiveDropdown(null)}
+              ref={el => dropdownRefs.current['features'] = el}
+              onMouseEnter={() => handleMouseEnter('features')}
+              onMouseLeave={() => handleMouseLeave('features')}
             >
               <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
                 <BarChart3 className="h-4 w-4" />
@@ -202,22 +196,26 @@ const Navbar = ({ user }) => {
               </button>
               
               {activeDropdown === 'features' && (
-                <div className="absolute top-full mt-2 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in slide-in-from-top-5 duration-200">
-                  <Link to="/features#analytics" className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all">
+                <div 
+                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
+                  <Link to="/features#analytics" className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150">
                     <BarChart3 className="h-4 w-4" />
                     <div>
                       <div className="font-medium">Analytics</div>
                       <div className="text-sm text-muted-foreground">Track scans & insights</div>
                     </div>
                   </Link>
-                  <Link to="/features#customization" className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all">
+                  <Link to="/features#customization" className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150">
                     <ImageIcon className="h-4 w-4" />
                     <div>
                       <div className="font-medium">Custom Design</div>
                       <div className="text-sm text-muted-foreground">Colors, logos, frames</div>
                     </div>
                   </Link>
-                  <Link to="/features#dynamic" className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all">
+                  <Link to="/features#dynamic" className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150">
                     <Settings className="h-4 w-4" />
                     <div>
                       <div className="font-medium">Dynamic QR</div>
@@ -231,8 +229,9 @@ const Navbar = ({ user }) => {
             {/* Resources Dropdown */}
             <div 
               className="relative group"
-              onMouseEnter={() => setActiveDropdown('resources')}
-              onMouseLeave={() => setActiveDropdown(null)}
+              ref={el => dropdownRefs.current['resources'] = el}
+              onMouseEnter={() => handleMouseEnter('resources')}
+              onMouseLeave={() => handleMouseLeave('resources')}
             >
               <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
                 <BookOpen className="h-4 w-4" />
@@ -241,12 +240,16 @@ const Navbar = ({ user }) => {
               </button>
               
               {activeDropdown === 'resources' && (
-                <div className="absolute top-full mt-2 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in slide-in-from-top-5 duration-200">
+                <div 
+                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
                   {resources.map((resource) => (
                     <Link
                       key={resource.label}
                       to={resource.route}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150"
                       onClick={() => setActiveDropdown(null)}
                     >
                       <resource.icon className="h-4 w-4" />
@@ -263,8 +266,9 @@ const Navbar = ({ user }) => {
             {/* Company Dropdown */}
             <div 
               className="relative group"
-              onMouseEnter={() => setActiveDropdown('company')}
-              onMouseLeave={() => setActiveDropdown(null)}
+              ref={el => dropdownRefs.current['company'] = el}
+              onMouseEnter={() => handleMouseEnter('company')}
+              onMouseLeave={() => handleMouseLeave('company')}
             >
               <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
                 <Users className="h-4 w-4" />
@@ -273,12 +277,16 @@ const Navbar = ({ user }) => {
               </button>
               
               {activeDropdown === 'company' && (
-                <div className="absolute top-full mt-2 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in slide-in-from-top-5 duration-200">
+                <div 
+                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
                   {company.map((item) => (
                     <Link
                       key={item.label}
                       to={item.route}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150"
                       onClick={() => setActiveDropdown(null)}
                     >
                       <item.icon className="h-4 w-4" />

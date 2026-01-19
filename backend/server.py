@@ -27,6 +27,8 @@ import hashlib
 from urllib.parse import quote
 
 from fastapi import WebSocket
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 
 
@@ -423,60 +425,127 @@ async def logout(request: Request, response: Response):
         response.delete_cookie("session_token")
     return {"message": "Logged out"}
 
-# ========== EMERGENT GOOGLE AUTH INTEGRATION ==========
-# REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+# # ========== EMERGENT GOOGLE AUTH INTEGRATION ==========
+# # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
-@api_router.post("/auth/emergent-session")
-async def emergent_auth_session(request: Request, response: Response):
-    """Exchange Emergent session_id for user session"""
+# @api_router.post("/auth/emergent-session")
+# async def emergent_auth_session(request: Request, response: Response):
+#     """Exchange Emergent session_id for user session"""
+#     body = await request.json()
+#     session_id = body.get("session_id")
+    
+#     if not session_id:
+#         raise HTTPException(status_code=400, detail="session_id required")
+    
+#     # Call Emergent Auth API
+#     import httpx
+#     async with httpx.AsyncClient() as client:
+#         auth_response = await client.get(
+#             "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+#             headers={"X-Session-ID": session_id}
+#         )
+        
+#         if auth_response.status_code != 200:
+#             raise HTTPException(status_code=401, detail="Invalid session_id")
+        
+#         auth_data = auth_response.json()
+    
+#     # Check if user exists
+#     user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
+    
+#     if not user:
+#         # Create new user
+#         user_id = f"user_{uuid.uuid4().hex[:12]}"
+#         user_doc = {
+#             "user_id": user_id,
+#             "email": auth_data["email"],
+#             "name": auth_data["name"],
+#             "picture": auth_data.get("picture"),
+#             "plan": "free",
+#             "qr_code_count": 0,
+#             "created_at": datetime.now(timezone.utc).isoformat()
+#         }
+#         await db.users.insert_one(user_doc)
+#         user = user_doc
+    
+#     # Create session
+#     session_token = auth_data["session_token"]
+#     session_doc = {
+#         "user_id": user["user_id"],
+#         "session_token": session_token,
+#         "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+#         "created_at": datetime.now(timezone.utc).isoformat()
+#     }
+#     await db.user_sessions.insert_one(session_doc)
+    
+#     # Set cookie
+#     response.set_cookie(
+#         key="session_token",
+#         value=session_token,
+#         httponly=True,
+#         secure=True,
+#         samesite="none",
+#         path="/",
+#         max_age=7 * 24 * 60 * 60
+#     )
+    
+#     return {
+#         "user": {
+#             "user_id": user["user_id"],
+#             "email": user["email"],
+#             "name": user["name"],
+#             "picture": user.get("picture"),
+#             "plan": user.get("plan", "free"),
+#             "qr_code_count": user.get("qr_code_count", 0)
+#         },
+#         "session_token": session_token
+#     }
+
+@api_router.post("/auth/google")
+async def google_login(request: Request, response: Response):
     body = await request.json()
-    session_id = body.get("session_id")
-    
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
-    
-    # Call Emergent Auth API
-    import httpx
-    async with httpx.AsyncClient() as client:
-        auth_response = await client.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
+    token = body.get("credential")
+
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing Google token")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            os.environ["GOOGLE_CLIENT_ID"]
         )
-        
-        if auth_response.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session_id")
-        
-        auth_data = auth_response.json()
-    
-    # Check if user exists
-    user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
-    
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    email = idinfo["email"]
+    name = idinfo.get("name", "")
+    picture = idinfo.get("picture")
+
+    user = await db.users.find_one({"email": email})
+
     if not user:
-        # Create new user
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        user_doc = {
+        user = {
             "user_id": user_id,
-            "email": auth_data["email"],
-            "name": auth_data["name"],
-            "picture": auth_data.get("picture"),
+            "email": email,
+            "name": name,
+            "picture": picture,
             "plan": "free",
             "qr_code_count": 0,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
-        await db.users.insert_one(user_doc)
-        user = user_doc
-    
-    # Create session
-    session_token = auth_data["session_token"]
-    session_doc = {
+        await db.users.insert_one(user)
+
+    session_token = create_jwt_token(user["user_id"], email)
+
+    await db.user_sessions.insert_one({
         "user_id": user["user_id"],
         "session_token": session_token,
         "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.user_sessions.insert_one(session_doc)
-    
-    # Set cookie
+    })
+
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -486,75 +555,17 @@ async def emergent_auth_session(request: Request, response: Response):
         path="/",
         max_age=7 * 24 * 60 * 60
     )
-    
+
     return {
         "user": {
             "user_id": user["user_id"],
             "email": user["email"],
             "name": user["name"],
-            "picture": user.get("picture"),
-            "plan": user.get("plan", "free"),
-            "qr_code_count": user.get("qr_code_count", 0)
+            "picture": picture,
+            "plan": user.get("plan", "free")
         },
         "session_token": session_token
     }
-
-# ========== QR CODE ROUTES ==========
-
-# @api_router.post("/qr-codes", response_model=QRCode)
-# async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current_user)):
-#     # Check plan limits
-#     plan = user.get("plan", "free")
-#     qr_count = user.get("qr_code_count", 0)
-    
-#     if plan == "free" and qr_count >= 5:
-#         raise HTTPException(status_code=403, detail="Free plan limit reached (5 QR codes)")
-    
-#     # if plan == "free" and qr_data.is_dynamic:
-#     #     raise HTTPException(status_code=403, detail="Dynamic QR codes are for paid plans only")
-    
-#     # Create QR
-#     qr_id = f"qr_{uuid.uuid4().hex[:12]}"
-#     redirect_token = f"r_{uuid.uuid4().hex[:8]}" if qr_data.is_dynamic else None
-#     # ✅ Backend-enforced dynamic logic (DO NOT TRUST FRONTEND)
-#     is_dynamic = False
-#     redirect_token = None
-
-#     if user.get("plan") != "free" and qr_data.is_dynamic:
-#         is_dynamic = True
-#         redirect_token = f"r_{uuid.uuid4().hex[:8]}"
-
-    
-#     qr_doc = {
-#         "qr_id": qr_id,
-#         "user_id": user["user_id"],
-#         "name": qr_data.name,
-#         "qr_type": qr_data.qr_type,
-#         "content": qr_data.content,
-#         "is_dynamic": is_dynamic,  
-#         "redirect_token": redirect_token,
-#         "design": qr_data.design,
-#         "scan_count": 0,
-#         "created_at": datetime.now(timezone.utc).isoformat(),
-#         "updated_at": datetime.now(timezone.utc).isoformat()
-#     }
-    
-#     await db.qr_codes.insert_one(qr_doc)
-    
-#     # Update user QR count
-#     await db.users.update_one(
-#         {"user_id": user["user_id"]},
-#         {"$inc": {"qr_code_count": 1}}
-#     )
-    
-#     # Return without _id
-#     qr_doc.pop("_id", None)
-#     if isinstance(qr_doc["created_at"], str):
-#         qr_doc["created_at"] = datetime.fromisoformat(qr_doc["created_at"])
-#     if isinstance(qr_doc["updated_at"], str):
-#         qr_doc["updated_at"] = datetime.fromisoformat(qr_doc["updated_at"])
-    
-#     return QRCode(**qr_doc)
 
 @api_router.post("/qr-codes", response_model=QRCode)
 async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current_user)):
@@ -1224,61 +1235,6 @@ async def get_plans():
     ]
     return plans
 
-# @api_router.post("/billing/checkout")
-# async def create_checkout(checkout_req: CheckoutRequest, request: Request, user: dict = Depends(get_current_user)):
-#     """Create Stripe checkout session"""
-    
-#     # Plan prices
-#     plan_prices = {
-#         "starter": 9.99,
-#         "pro": 29.99,
-#         "enterprise": 99.99
-#     }
-    
-#     if checkout_req.plan_name not in plan_prices:
-#         raise HTTPException(status_code=400, detail="Invalid plan")
-    
-#     amount = plan_prices[checkout_req.plan_name]
-#     origin_url = checkout_req.origin_url
-    
-#     if not origin_url:
-#         raise HTTPException(status_code=400, detail="origin_url required")
-    
-#     # Create Stripe checkout
-#     host_url = str(request.base_url)
-#     webhook_url = f"{host_url}api/webhook/stripe"
-#     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
-    
-#     success_url = f"{origin_url}/billing/success?session_id={{{{CHECKOUT_SESSION_ID}}}}"
-#     cancel_url = f"{origin_url}/billing"
-    
-#     checkout_request = CheckoutSessionRequest(
-#         amount=amount,
-#         currency="usd",
-#         success_url=success_url,
-#         cancel_url=cancel_url,
-#         metadata={
-#             "user_id": user["user_id"],
-#             "plan_name": checkout_req.plan_name
-#         }
-#     )
-    
-#     session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
-    
-#     # Store transaction
-#     transaction_doc = {
-#         "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
-#         "user_id": user["user_id"],
-#         "session_id": session.session_id,
-#         "plan_name": checkout_req.plan_name,
-#         "amount": amount,
-#         "currency": "usd",
-#         "payment_status": "pending",
-#         "created_at": datetime.now(timezone.utc).isoformat()
-#     }
-#     await db.payment_transactions.insert_one(transaction_doc)
-    
-#     return {"url": session.url, "session_id": session.session_id}
 
 @api_router.post("/billing/checkout")
 async def create_checkout(
@@ -1338,61 +1294,6 @@ async def create_checkout(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# @api_router.get("/billing/status/{session_id}")
-# async def get_checkout_status(session_id: str, user: dict = Depends(get_current_user)):
-#     """Get checkout session status"""
-#     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url="")
-    
-#     status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
-    
-#     # Update transaction if paid
-#     if status.payment_status == "paid":
-#         transaction = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
-#         if transaction and transaction.get("payment_status") != "paid":
-#             # Update user plan
-#             await db.users.update_one(
-#                 {"user_id": user["user_id"]},
-#                 {"$set": {"plan": transaction["plan_name"]}}
-#             )
-            
-#             # Update transaction
-#             await db.payment_transactions.update_one(
-#                 {"session_id": session_id},
-#                 {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
-#             )
-    
-#     return {
-#         "status": status.status,
-#         "payment_status": status.payment_status,
-#         "amount": status.amount_total / 100,  # Convert cents to dollars
-#         "currency": status.currency
-#     }
-
-# @api_router.get("/billing/status/{session_id}")
-# async def checkout_status(
-#     session_id: str,
-#     user: dict = Depends(get_current_user)
-# ):
-#     session = stripe.checkout.Session.retrieve(session_id)
-
-#     if session.payment_status == "paid":
-#         await db.users.update_one(
-#             {"user_id": user["user_id"]},
-#             {"$set": {"plan": session.metadata["plan_name"]}}
-#         )
-
-#         await db.payment_transactions.update_one(
-#             {"session_id": session_id},
-#             {"$set": {
-#                 "payment_status": "paid",
-#                 "paid_at": datetime.now(timezone.utc).isoformat()
-#             }}
-#         )
-
-#     return {
-#         "status": session.status,
-#         "payment_status": session.payment_status
-#     }
 
 @api_router.get("/billing/status/{session_id}")
 async def checkout_status(session_id: str, user: dict = Depends(get_current_user)):
@@ -1424,30 +1325,6 @@ async def checkout_status(session_id: str, user: dict = Depends(get_current_user
 
 
 
-# @api_router.post("/webhook/stripe")
-# async def stripe_webhook(request: Request):
-#     payload = await request.body()
-#     sig_header = request.headers.get("Stripe-Signature")
-
-#     try:
-#         event = stripe.Webhook.construct_event(
-#             payload, sig_header, STRIPE_WEBHOOK_SECRET
-#         )
-#     except Exception:
-#         raise HTTPException(status_code=400, detail="Invalid webhook")
-
-#     if event["type"] == "checkout.session.completed":
-#         session = event["data"]["object"]
-#         user_id = session["metadata"]["user_id"]
-#         plan = session["metadata"]["plan_name"]
-
-#         await db.users.update_one(
-#             {"user_id": user_id},
-#             {"$set": {"plan": plan}}
-#         )
-
-#     return {"status": "success"}
-
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     payload = await request.body()
@@ -1465,13 +1342,13 @@ async def stripe_webhook(request: Request):
         user_id = session["metadata"]["user_id"]
         plan = session["metadata"]["plan_name"]
 
-        # ✅ 1. Update user plan
+        #  1. Update user plan
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {"plan": plan}}
         )
 
-        # ✅ 2. UPGRADE ALL EXISTING QRs TO DYNAMIC
+        #  2. UPGRADE ALL EXISTING QRs TO DYNAMIC
         await db.qr_codes.update_many(
             {
                 "user_id": user_id,

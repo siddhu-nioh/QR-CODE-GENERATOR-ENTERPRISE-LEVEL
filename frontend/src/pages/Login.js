@@ -9,6 +9,7 @@ import { Card } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { QrCode, Mail, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -51,11 +52,11 @@ const Login = () => {
   };
 
 
-  const handleGoogleLogin = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-  };
+  // const handleGoogleLogin = () => {
+  //   // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+  //   const redirectUrl = window.location.origin + '/dashboard';
+  //   window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  // };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" data-testid="login-page">
@@ -184,7 +185,25 @@ const Login = () => {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            Continue with Google
+            <GoogleLogin
+  onSuccess={async (credentialResponse) => {
+    try {
+      const res = await axios.post(`${API}/auth/google`, {
+        credential: credentialResponse.credential
+      });
+
+      localStorage.setItem("session_token", res.data.session_token);
+      toast.success("Logged in with Google");
+      navigate("/dashboard");
+    } catch (err) {
+      toast.error("Google login failed");
+    }
+  }}
+  onError={() => {
+    toast.error("Google Sign-In failed");
+  }}
+/>
+e
           </Button>
         </div>
 

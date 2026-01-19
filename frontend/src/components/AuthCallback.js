@@ -29,7 +29,7 @@ const AuthCallback = () => {
 
         // Exchange session_id for user session
         const response = await axios.post(
-          `${API}/auth/emergent-session`,
+          `${API}/auth/google`,
           { session_id: sessionId },
           { withCredentials: true }
         );

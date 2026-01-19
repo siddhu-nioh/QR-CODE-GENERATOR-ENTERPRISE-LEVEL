@@ -5,8 +5,9 @@ import { Card } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { QrCode, Zap, BarChart3, Palette, Download, Shield, ArrowRight, Check, Link as LinkIcon, Mail, Phone, MessageSquare, Wifi, User, FileText, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Navbar from '@/components/Navbar';
 
-const Landing = () => {
+const Landing = ({user}) => {
   const navigate = useNavigate();
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [currentExample, setCurrentExample] = useState(0);
@@ -187,7 +188,7 @@ const Landing = () => {
           </div>
         </div>
       </header> */}
- <Navbar user={user} setUser={setUser} />
+ <Navbar user={user}  />
       {/* Hero Section */}
       <section className="py-20 md:py-32" data-testid="hero-section">
         <div className="container mx-auto px-4 md:px-8 lg:px-12">

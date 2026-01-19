@@ -26,12 +26,48 @@ function AppRouter() {
   if (location.hash?.includes('session_id=')) {
     return <AuthCallback />;
   }
-  
+
+  useEffect(() => {
+    // Check if user is logged in on app load
+    const token = localStorage.getItem('session_token');
+    if (token) {
+      axios.get(`${API}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(response => {
+        setUser(response.data.user);
+      })
+      .catch(() => {
+        localStorage.removeItem('session_token');
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);
+    const withNavbar = (Component, props = {}) => (
+    <>
+      <Navbar user={user} />
+      <Component {...props} />
+    </>
+  );
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<LandingPage user={user} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
+         <Route path="/about" element={withNavbar(AboutPage)} />
+          <Route path="/contact" element={withNavbar(ContactPage)} />
+          <Route path="/features" element={withNavbar(FeaturesPage)} />
+          <Route path="/resources" element={withNavbar(ResourcesPage)} />
+          <Route path="/help" element={withNavbar(HelpPage)} />
+          <Route path="/security" element={withNavbar(SecurityPage)} />
+          <Route path="/privacy" element={withNavbar(SecurityPage)} />
+          <Route path="/terms" element={withNavbar(SecurityPage)} />
+          <Route path="/blog" element={withNavbar(ResourcesPage)} />
+          <Route path="/case-studies" element={withNavbar(ResourcesPage)} />
+          <Route path="/tools" element={withNavbar(ResourcesPage)} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/generator" element={<ProtectedRoute><QRGenerator /></ProtectedRoute>} />
       <Route path="/designer/:qrId" element={<ProtectedRoute><QRDesigner /></ProtectedRoute>} />

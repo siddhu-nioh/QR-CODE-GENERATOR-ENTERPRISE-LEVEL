@@ -1,5 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
-from fastapi.responses import StreamingResponse, RedirectResponse , HTMLResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, WebSocket
+from fastapi.responses import StreamingResponse, RedirectResponse, HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -15,23 +15,14 @@ import jwt
 import qrcode
 from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer, CircleModuleDrawer, GappedSquareModuleDrawer
-from qrcode.image.styles.colormasks import SolidFillColorMask
 from PIL import Image, ImageDraw, ImageFont
 import io
-import segno
-# from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 import stripe
 import hmac
 import hashlib
-# from fastapi.responses import RedirectResponse
 from urllib.parse import quote
-
-from fastapi import WebSocket
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-
-
-
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -46,13 +37,11 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')
 JWT_ALGORITHM = 'HS256'
 IMAGE_SIGN_SECRET = os.environ.get("QR_IMAGE_SIGN_SECRET", "qr-image-secret")
 
-
 # Stripe
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
-# STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-
 stripe.api_key = STRIPE_API_KEY
+
 # ================= REALTIME WS STORAGE =================
 active_connections: set[WebSocket] = set()
 
@@ -64,7 +53,7 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-allow_origins=os.environ.get('CORS_ORIGINS', '*').split(',')
+allow_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 
 # ========== MODELS ==========
 
@@ -152,8 +141,6 @@ def sign_qr_image(qr_id: str, user_id: str, updated_at: str) -> str:
         msg,
         hashlib.sha256
     ).hexdigest()
-
-
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -265,18 +252,181 @@ async def get_user_from_cookie(request: Request) -> dict:
 
     return user
 
+def create_gradient_image(size, color1, color2, gradient_type='linear', direction='horizontal'):
+    """Create a gradient image"""
+    img = Image.new('RGB', size)
+    draw = ImageDraw.Draw(img)
+    
+    if gradient_type == 'linear':
+        if direction == 'horizontal':
+            for x in range(size[0]):
+                ratio = x / size[0]
+                r = int(int(color1[1:3], 16) * (1 - ratio) + int(color2[1:3], 16) * ratio)
+                g = int(int(color1[3:5], 16) * (1 - ratio) + int(color2[3:5], 16) * ratio)
+                b = int(int(color1[5:7], 16) * (1 - ratio) + int(color2[5:7], 16) * ratio)
+                draw.line([(x, 0), (x, size[1])], fill=(r, g, b))
+        else:  # vertical
+            for y in range(size[1]):
+                ratio = y / size[1]
+                r = int(int(color1[1:3], 16) * (1 - ratio) + int(color2[1:3], 16) * ratio)
+                g = int(int(color1[3:5], 16) * (1 - ratio) + int(color2[3:5], 16) * ratio)
+                b = int(int(color1[5:7], 16) * (1 - ratio) + int(color2[5:7], 16) * ratio)
+                draw.line([(0, y), (size[0], y)], fill=(r, g, b))
+    elif gradient_type == 'radial':
+        center_x, center_y = size[0] // 2, size[1] // 2
+        max_distance = ((center_x ** 2 + center_y ** 2) ** 0.5)
+        for y in range(size[1]):
+            for x in range(size[0]):
+                distance = ((x - center_x) ** 2 + (y - center_y) ** 2) ** 0.5
+                ratio = min(distance / max_distance, 1.0)
+                r = int(int(color1[1:3], 16) * (1 - ratio) + int(color2[1:3], 16) * ratio)
+                g = int(int(color1[3:5], 16) * (1 - ratio) + int(color2[3:5], 16) * ratio)
+                b = int(int(color1[5:7], 16) * (1 - ratio) + int(color2[5:7], 16) * ratio)
+                draw.point((x, y), fill=(r, g, b))
+    
+    return img
+
+def apply_pattern_style(qr, pattern_style):
+    """Apply pattern style to QR code"""
+    module_drawer = None
+    
+    if pattern_style == 'rounded':
+        module_drawer = RoundedModuleDrawer()
+    elif pattern_style == 'circle' or pattern_style == 'dots':
+        module_drawer = CircleModuleDrawer()
+    elif pattern_style == 'gapped':
+        module_drawer = GappedSquareModuleDrawer()
+    # Default is square (no module_drawer)
+    
+    return module_drawer
+
+def add_frame_to_qr(img, frame_style, frame_color='#000000', frame_text=''):
+    """Add frame around QR code"""
+    if not frame_style or frame_style == 'none':
+        return img
+    
+    width, height = img.size
+    frame_width = int(width * 0.15)  # 15% frame
+    
+    # Create new image with frame
+    new_size = (width + frame_width * 2, height + frame_width * 2)
+    framed_img = Image.new('RGB', new_size, 'white')
+    
+    # Paste QR in center
+    framed_img.paste(img, (frame_width, frame_width))
+    
+    # Draw frame based on style
+    draw = ImageDraw.Draw(framed_img)
+    
+    if frame_style == 'square':
+        draw.rectangle([0, 0, new_size[0]-1, new_size[1]-1], outline=frame_color, width=frame_width//2)
+    elif frame_style == 'rounded':
+        # Draw rounded rectangle frame
+        radius = frame_width
+        draw.rounded_rectangle([0, 0, new_size[0]-1, new_size[1]-1], radius=radius, outline=frame_color, width=frame_width//2)
+    elif frame_style == 'circle':
+        # Draw circular frame
+        draw.ellipse([0, 0, new_size[0]-1, new_size[1]-1], outline=frame_color, width=frame_width//2)
+    
+    # Add frame text if provided
+    if frame_text:
+        try:
+            font_size = frame_width // 2
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+            
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), frame_text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Draw text at bottom center
+            text_x = (new_size[0] - text_width) // 2
+            text_y = new_size[1] - frame_width + (frame_width - text_height) // 2
+            
+            draw.text((text_x, text_y), frame_text, fill=frame_color, font=font)
+        except:
+            pass
+    
+    return framed_img
+
+def add_logo_to_qr(img, logo_data, logo_size_percent=20):
+    """Add logo to center of QR code"""
+    try:
+        # Open logo image
+        logo = Image.open(io.BytesIO(logo_data))
+        
+        # Calculate logo size (percentage of QR size)
+        qr_width, qr_height = img.size
+        logo_max_size = int(min(qr_width, qr_height) * (logo_size_percent / 100))
+        
+        # Resize logo maintaining aspect ratio
+        logo.thumbnail((logo_max_size, logo_max_size), Image.Resampling.LANCZOS)
+        
+        # Create white background for logo
+        logo_bg_size = int(logo.size[0] * 1.2), int(logo.size[1] * 1.2)
+        logo_bg = Image.new('RGB', logo_bg_size, 'white')
+        
+        # Paste logo on white background
+        logo_pos = ((logo_bg_size[0] - logo.size[0]) // 2, (logo_bg_size[1] - logo.size[1]) // 2)
+        if logo.mode == 'RGBA':
+            logo_bg.paste(logo, logo_pos, logo)
+        else:
+            logo_bg.paste(logo, logo_pos)
+        
+        # Paste logo background on QR code
+        logo_bg_pos = ((qr_width - logo_bg_size[0]) // 2, (qr_height - logo_bg_size[1]) // 2)
+        img.paste(logo_bg, logo_bg_pos)
+        
+        return img
+    except Exception as e:
+        logger.error(f"Error adding logo: {e}")
+        return img
 
 def create_qr_image(data: str, design: Optional[Dict[str, Any]] = None) -> bytes:
-    """Generate QR code image with optional customization"""
+    """Generate QR code image with advanced customization"""
     
-    # Default design
+    # Default design values
     fg_color = "#000000"
     bg_color = "#FFFFFF"
-    error_correction = qrcode.constants.ERROR_CORRECT_H
+    error_correction_level = "H"
+    pattern_style = "square"
+    gradient_enabled = False
+    gradient_color1 = None
+    gradient_color2 = None
+    gradient_type = "linear"
+    gradient_direction = "horizontal"
+    frame_style = "none"
+    frame_color = "#000000"
+    frame_text = ""
+    logo_data = None
     
+    # Parse design options
     if design:
         fg_color = design.get("foreground_color", fg_color)
         bg_color = design.get("background_color", bg_color)
+        error_correction_level = design.get("error_correction", "H")
+        pattern_style = design.get("pattern_style", "square")
+        gradient_enabled = design.get("gradient_enabled", False)
+        gradient_color1 = design.get("gradient_color1")
+        gradient_color2 = design.get("gradient_color2")
+        gradient_type = design.get("gradient_type", "linear")
+        gradient_direction = design.get("gradient_direction", "horizontal")
+        frame_style = design.get("frame_style", "none")
+        frame_color = design.get("frame_color", "#000000")
+        frame_text = design.get("frame_text", "")
+        logo_data = design.get("logo_data")  # base64 encoded or bytes
+    
+    # Map error correction level
+    error_correction_map = {
+        "L": qrcode.constants.ERROR_CORRECT_L,
+        "M": qrcode.constants.ERROR_CORRECT_M,
+        "Q": qrcode.constants.ERROR_CORRECT_Q,
+        "H": qrcode.constants.ERROR_CORRECT_H
+    }
+    error_correction = error_correction_map.get(error_correction_level, qrcode.constants.ERROR_CORRECT_H)
     
     # Create QR code
     qr = qrcode.QRCode(
@@ -288,36 +438,76 @@ def create_qr_image(data: str, design: Optional[Dict[str, Any]] = None) -> bytes
     qr.add_data(data)
     qr.make(fit=True)
     
-    # Generate image
-    img = qr.make_image(fill_color=fg_color, back_color=bg_color)
+    # Apply pattern style
+    module_drawer = apply_pattern_style(qr, pattern_style)
     
-    # Convert to PIL Image for further customization
-    if isinstance(img, Image.Image):
-        pil_img = img
+    # Generate image with pattern
+    if module_drawer:
+        img = qr.make_image(
+            image_factory=StyledPilImage,
+            module_drawer=module_drawer,
+            fill_color=fg_color,
+            back_color=bg_color
+        )
     else:
-        pil_img = img.convert('RGB')
+        img = qr.make_image(fill_color=fg_color, back_color=bg_color)
     
-    # Add logo if provided (center)
-    if design and design.get("logo_url"):
+    # Convert to PIL Image
+    if not isinstance(img, Image.Image):
+        pil_img = img.convert('RGB')
+    else:
+        pil_img = img
+    
+    # Apply gradient if enabled
+    if gradient_enabled and gradient_color1 and gradient_color2:
+        # Create gradient mask
+        gradient_mask = create_gradient_image(
+            pil_img.size, 
+            gradient_color1, 
+            gradient_color2, 
+            gradient_type, 
+            gradient_direction
+        )
+        
+        # Apply gradient only to foreground (black parts)
+        qr_pixels = pil_img.load()
+        grad_pixels = gradient_mask.load()
+        result_img = Image.new('RGB', pil_img.size, bg_color)
+        result_pixels = result_img.load()
+        
+        for y in range(pil_img.size[1]):
+            for x in range(pil_img.size[0]):
+                if qr_pixels[x, y] != (255, 255, 255):  # If not white (background)
+                    result_pixels[x, y] = grad_pixels[x, y]
+                else:
+                    result_pixels[x, y] = qr_pixels[x, y]
+        
+        pil_img = result_img
+    
+    # Add logo if provided
+    if logo_data:
         try:
-            # For now, skip logo (would need to download from URL)
-            pass
-        except:
-            pass
+            # If logo_data is base64 string, decode it
+            if isinstance(logo_data, str) and logo_data.startswith('data:image'):
+                # Extract base64 part
+                logo_data = logo_data.split(',')[1]
+                import base64
+                logo_data = base64.b64decode(logo_data)
+            pil_img = add_logo_to_qr(pil_img, logo_data)
+        except Exception as e:
+            logger.error(f"Error processing logo: {e}")
+    
+    # Add frame
+    if frame_style and frame_style != 'none':
+        pil_img = add_frame_to_qr(pil_img, frame_style, frame_color, frame_text)
     
     # Convert to bytes
     img_byte_arr = io.BytesIO()
-    pil_img.save(img_byte_arr, format='PNG')
+    pil_img.save(img_byte_arr, format='PNG', quality=95)
     img_byte_arr.seek(0)
     return img_byte_arr.getvalue()
 
 # ========== AUTH ROUTES ==========
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    await websocket.send_text("Connected")
-    await websocket.close()
-
 
 @api_router.post("/auth/signup")
 async def signup(user_data: UserCreate):
@@ -365,7 +555,6 @@ async def signup(user_data: UserCreate):
 
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin, response: Response):
-
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -383,17 +572,15 @@ async def login(credentials: UserLogin, response: Response):
     }
     await db.user_sessions.insert_one(session_doc)
 
-
     response.set_cookie(
-    key="session_token",
-    value=session_token,
-    httponly=True,
-    secure=True,          # REQUIRED for Vercel (HTTPS)
-    samesite="none",      # REQUIRED for cross-site
-    path="/",
-    max_age=7 * 24 * 60 * 60
-)
-
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
     
     return {
         "user": {
@@ -424,82 +611,6 @@ async def logout(request: Request, response: Response):
         await db.user_sessions.delete_one({"session_token": token})
         response.delete_cookie("session_token")
     return {"message": "Logged out"}
-
-# # ========== EMERGENT GOOGLE AUTH INTEGRATION ==========
-# # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-
-# @api_router.post("/auth/emergent-session")
-# async def emergent_auth_session(request: Request, response: Response):
-#     """Exchange Emergent session_id for user session"""
-#     body = await request.json()
-#     session_id = body.get("session_id")
-    
-#     if not session_id:
-#         raise HTTPException(status_code=400, detail="session_id required")
-    
-#     # Call Emergent Auth API
-#     import httpx
-#     async with httpx.AsyncClient() as client:
-#         auth_response = await client.get(
-#             "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-#             headers={"X-Session-ID": session_id}
-#         )
-        
-#         if auth_response.status_code != 200:
-#             raise HTTPException(status_code=401, detail="Invalid session_id")
-        
-#         auth_data = auth_response.json()
-    
-#     # Check if user exists
-#     user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
-    
-#     if not user:
-#         # Create new user
-#         user_id = f"user_{uuid.uuid4().hex[:12]}"
-#         user_doc = {
-#             "user_id": user_id,
-#             "email": auth_data["email"],
-#             "name": auth_data["name"],
-#             "picture": auth_data.get("picture"),
-#             "plan": "free",
-#             "qr_code_count": 0,
-#             "created_at": datetime.now(timezone.utc).isoformat()
-#         }
-#         await db.users.insert_one(user_doc)
-#         user = user_doc
-    
-#     # Create session
-#     session_token = auth_data["session_token"]
-#     session_doc = {
-#         "user_id": user["user_id"],
-#         "session_token": session_token,
-#         "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
-#         "created_at": datetime.now(timezone.utc).isoformat()
-#     }
-#     await db.user_sessions.insert_one(session_doc)
-    
-#     # Set cookie
-#     response.set_cookie(
-#         key="session_token",
-#         value=session_token,
-#         httponly=True,
-#         secure=True,
-#         samesite="none",
-#         path="/",
-#         max_age=7 * 24 * 60 * 60
-#     )
-    
-#     return {
-#         "user": {
-#             "user_id": user["user_id"],
-#             "email": user["email"],
-#             "name": user["name"],
-#             "picture": user.get("picture"),
-#             "plan": user.get("plan", "free"),
-#             "qr_code_count": user.get("qr_code_count", 0)
-#         },
-#         "session_token": session_token
-#     }
 
 @api_router.post("/auth/google")
 async def google_login(request: Request, response: Response):
@@ -567,6 +678,145 @@ async def google_login(request: Request, response: Response):
         "session_token": session_token
     }
 
+# ========== EMERGENT GOOGLE AUTH INTEGRATION ==========
+
+@api_router.post("/auth/emergent-session")
+async def emergent_auth_session(request: Request, response: Response):
+    """Exchange Emergent session_id for user session"""
+    body = await request.json()
+    session_id = body.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+    
+    # Call Emergent Auth API
+    import httpx
+    async with httpx.AsyncClient() as client:
+        auth_response = await client.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": session_id}
+        )
+        
+        if auth_response.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid session_id")
+        
+        auth_data = auth_response.json()
+    
+    # Check if user exists
+    user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
+    
+    if not user:
+        # Create new user
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        user_doc = {
+            "user_id": user_id,
+            "email": auth_data["email"],
+            "name": auth_data["name"],
+            "picture": auth_data.get("picture"),
+            "plan": "free",
+            "qr_code_count": 0,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.users.insert_one(user_doc)
+        user = user_doc
+    
+    # Create session
+    session_token = auth_data["session_token"]
+    session_doc = {
+        "user_id": user["user_id"],
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    # Set cookie
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    return {
+        "user": {
+            "user_id": user["user_id"],
+            "email": user["email"],
+            "name": user["name"],
+            "picture": user.get("picture"),
+            "plan": user.get("plan", "free"),
+            "qr_code_count": user.get("qr_code_count", 0)
+        },
+        "session_token": session_token
+    }
+
+# ========== DESIGN TEMPLATES ==========
+
+DESIGN_TEMPLATES = {
+    "simple": {"name": "Simple", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "instagram": {"name": "Instagram", "foreground_color": "#E1306C", "background_color": "#FFFFFF", "pattern_style": "rounded", "gradient_enabled": True, "gradient_color1": "#F58529", "gradient_color2": "#C13584"},
+    "facebook": {"name": "Facebook", "foreground_color": "#1877F2", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "tiktok": {"name": "TikTok", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "whatsapp": {"name": "WhatsApp", "foreground_color": "#25D366", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "linkedin": {"name": "LinkedIn", "foreground_color": "#0A66C2", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "youtube": {"name": "YouTube", "foreground_color": "#FF0000", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "spotify": {"name": "Spotify", "foreground_color": "#1DB954", "background_color": "#000000", "pattern_style": "rounded"},
+    "twitter": {"name": "Twitter/X", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "snapchat": {"name": "Snapchat", "foreground_color": "#FFFC00", "background_color": "#000000", "pattern_style": "rounded"},
+    "pinterest": {"name": "Pinterest", "foreground_color": "#E60023", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "reddit": {"name": "Reddit", "foreground_color": "#FF4500", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "wifi": {"name": "WiFi", "foreground_color": "#4285F4", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "vcard": {"name": "vCard", "foreground_color": "#34A853", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "pdf": {"name": "PDF", "foreground_color": "#F40F02", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "email": {"name": "Email", "foreground_color": "#EA4335", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "phone": {"name": "Phone", "foreground_color": "#34A853", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "sms": {"name": "SMS", "foreground_color": "#FBBC05", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "location": {"name": "Location", "foreground_color": "#EA4335", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "bitcoin": {"name": "Bitcoin", "foreground_color": "#F7931A", "background_color": "#FFFFFF", "pattern_style": "square"},
+}
+
+@api_router.get("/design-templates")
+async def get_design_templates():
+    """Get all available design templates"""
+    return {"templates": DESIGN_TEMPLATES}
+
+@api_router.post("/upload-logo")
+async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
+    """Upload logo for QR code"""
+    try:
+        form = await request.form()
+        logo_file = form.get("logo")
+        
+        if not logo_file:
+            raise HTTPException(status_code=400, detail="No logo file provided")
+        
+        # Read file content
+        logo_content = await logo_file.read()
+        
+        # Validate image
+        try:
+            img = Image.open(io.BytesIO(logo_content))
+            img.verify()
+        except:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+        
+        # Convert to base64
+        import base64
+        logo_base64 = base64.b64encode(logo_content).decode('utf-8')
+        logo_data_url = f"data:image/png;base64,{logo_base64}"
+        
+        return {"logo_data": logo_data_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading logo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== QR CODE ROUTES ==========
+
 @api_router.post("/qr-codes", response_model=QRCode)
 async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current_user)):
     plan = user.get("plan", "free")
@@ -607,20 +857,17 @@ async def create_qr_code(qr_data: QRCodeCreate, user: dict = Depends(get_current
 
     return QRCode(**qr_doc)
 
-
 @api_router.get("/qr-codes", response_model=List[QRCode])
 async def get_qr_codes(user: dict = Depends(get_current_user)):
     qr_codes = await db.qr_codes.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(1000)
     
     # Convert dates
     for qr in qr_codes:
-
         qr["signature"] = sign_qr_image(
-    qr["qr_id"],
-    qr["user_id"],
-    qr["updated_at"]
-)
-
+            qr["qr_id"],
+            qr["user_id"],
+            qr["updated_at"]
+        )
 
         if isinstance(qr["created_at"], str):
             qr["created_at"] = datetime.fromisoformat(qr["created_at"])
@@ -692,15 +939,12 @@ async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get
     # Generate content
     if qr["is_dynamic"]:
         # For dynamic, encode redirect URL
-        redirect_url = (
-    f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
-)
-
+        redirect_url = f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
         qr_content = redirect_url
     else:
         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
     
-    # Generate image
+    # Generate image with advanced customization
     img_bytes = create_qr_image(qr_content, qr.get("design"))
     
     # Check if free plan - add watermark
@@ -720,8 +964,6 @@ async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get
         img_bytes = img_byte_arr.getvalue()
     
     return StreamingResponse(io.BytesIO(img_bytes), media_type="image/png")
-
-# for making singel qr to upate to dynamic --- we have already one fucnitonla route tht idpates all staic qrs to updae dynamich if biling route if its succes but its not feasible as samerediret token url wwhic is used for realime scans whcin single redirect url will apply to all teh converted staic qrs once payment is done so first startres we implent single onversion as its fucnional but apllying signle smae edirct toekn url its not convertion all with same url to dyucnic son we are implemntimg ad this and then after we will count how may stic are here when billing fone and then by count one by one we create a fcunion async one whjcih will convert each one dymicna nd asing a redirect url one by one unti the count decreasses to zero if they have many qr coudes we wil use adaveced algorithms to reduce the time and increase speed and to reduce cache memery 
 
 @api_router.post("/qr-codes/{qr_id}/make-dynamic")
 async def make_qr_dynamic(qr_id: str, user: dict = Depends(get_current_user)):
@@ -758,9 +1000,6 @@ async def make_qr_dynamic(qr_id: str, user: dict = Depends(get_current_user)):
         "redirect_token": redirect_token
     }
 
-
-
-#--------------------------------------------------------------------------------------------------
 @api_router.get("/public/qr/{qr_id}/image")
 async def public_qr_image(qr_id: str, sig: str):
     qr = await db.qr_codes.find_one({"qr_id": qr_id}, {"_id": 0})
@@ -768,10 +1007,10 @@ async def public_qr_image(qr_id: str, sig: str):
         raise HTTPException(status_code=404, detail="QR code not found")
 
     expected_sig = sign_qr_image(
-    qr_id,
-    qr["user_id"],
-    qr["updated_at"]
-)
+        qr_id,
+        qr["user_id"],
+        qr["updated_at"]
+    )
 
     if sig != expected_sig:
         raise HTTPException(status_code=401, detail="Invalid signature")
@@ -779,15 +1018,12 @@ async def public_qr_image(qr_id: str, sig: str):
     # Generate content
     if qr["is_dynamic"]:
         # For dynamic, encode redirect URL
-        redirect_url = (
-    f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
-)
-
+        redirect_url = f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
         qr_content = redirect_url
     else:
         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
-    
 
+    # Generate image with advanced customization
     img_bytes = create_qr_image(qr_content, qr.get("design"))
 
     # Watermark for free plan
@@ -809,267 +1045,6 @@ async def public_qr_image(qr_id: str, sig: str):
         headers={"Cache-Control": "public, max-age=3600"}
     )
 
-
-# ========== DYNAMIC QR REDIRECT ==========
-
-# @api_router.get("/r/{token}")
-# async def redirect_qr(token: str, request: Request):
-#     qr = await db.qr_codes.find_one(
-#         {"redirect_token": token}, {"_id": 0}
-#     )
-
-#     if not qr:
-#         raise HTTPException(status_code=404, detail="QR code not found")
-
-#     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
-#     user_agent = request.headers.get("user-agent", "")
-
-#     await db.scan_events.insert_one({
-#         "scan_id": scan_id,
-#         "qr_id": qr["qr_id"],
-#         "user_id": qr["user_id"],
-#         "timestamp": datetime.now(timezone.utc).isoformat(),
-#         "device": "mobile" if "mobile" in user_agent.lower() else "desktop",
-#         "ip_address": request.client.host if request.client else None
-#     })
-
-#     await db.qr_codes.update_one(
-#         {"qr_id": qr["qr_id"]},
-#         {"$inc": {"scan_count": 1}}
-#     )
-
-#     # ✅ REALTIME PUSH
-#     for ws in list(active_connections):
-#         try:
-#             await ws.send_json({
-#                 "type": "qr_scan",
-#                 "qr_id": qr["qr_id"]
-#             })
-#         except:
-#             active_connections.remove(ws)
-
-#     target_url = generate_qr_content(qr["qr_type"], qr["content"])
-#     return RedirectResponse(url=target_url)
-
-
-# ========== DYNAMIC QR REDIRECT ==========
-
-# @api_router.get("/r/{token}")
-# async def redirect_qr(token: str, request: Request):
-#     qr = await db.qr_codes.find_one(
-#         {"redirect_token": token}, {"_id": 0}
-#     )
-
-#     if not qr:
-#         raise HTTPException(status_code=404, detail="QR code not found")
-
-#     # ================= ANALYTICS =================
-#     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
-#     user_agent = request.headers.get("user-agent", "")
-
-#     await db.scan_events.insert_one({
-#         "scan_id": scan_id,
-#         "qr_id": qr["qr_id"],
-#         "user_id": qr["user_id"],
-#         "timestamp": datetime.now(timezone.utc).isoformat(),
-#         "device": "mobile" if "mobile" in user_agent.lower() else "desktop",
-#         "ip_address": request.client.host if request.client else None
-#     })
-
-#     await db.qr_codes.update_one(
-#         {"qr_id": qr["qr_id"]},
-#         {"$inc": {"scan_count": 1}}
-#     )
-
-#     # ================= REALTIME PUSH =================
-#     for ws in list(active_connections):
-#         try:
-#             await ws.send_json({
-#                 "type": "qr_scan",
-#                 "qr_id": qr["qr_id"]
-#             })
-#         except:
-#             active_connections.remove(ws)
-
-#     # ================= REDIRECT LOGIC =================
-#     qr_type = qr["qr_type"]
-#     content = qr["content"]
-
-#     # URL
-#     if qr_type == "url":
-#         return RedirectResponse(content.get("url"))
-
-#     # TEXT
-#     if qr_type == "text":
-#         text = quote(content.get("text", ""))
-#         return RedirectResponse(f"data:text/plain,{text}")
-
-#     # PHONE
-#     if qr_type == "phone":
-#         return RedirectResponse(f"tel:{content.get('phone','')}")
-
-#     # EMAIL
-#     if qr_type == "email":
-#         return RedirectResponse(
-#             f"mailto:{content.get('email','')}?"
-#             f"subject={quote(content.get('subject',''))}&"
-#             f"body={quote(content.get('body',''))}"
-#         )
-
-#     # SMS
-#     if qr_type == "sms":
-#         return RedirectResponse(
-#             f"sms:{content.get('phone','')}?"
-#             f"body={quote(content.get('message',''))}"
-#         )
-
-#     # WHATSAPP
-#     if qr_type == "whatsapp":
-#         return RedirectResponse(
-#             f"https://wa.me/{content.get('phone','')}?"
-#             f"text={quote(content.get('message',''))}"
-#         )
-
-#     # WIFI
-#     if qr_type == "wifi":
-#         ssid = content.get("ssid", "")
-#         password = content.get("password", "")
-#         encryption = content.get("encryption", "WPA")
-#         wifi_payload = f"WIFI:T:{encryption};S:{ssid};P:{password};;"
-#         return RedirectResponse(f"data:text/plain,{quote(wifi_payload)}")
-
-#     # VCARD
-#     if qr_type == "vcard":
-#         vcard = f"""BEGIN:VCARD
-# VERSION:3.0
-# FN:{content.get('name','')}
-# TEL:{content.get('phone','')}
-# EMAIL:{content.get('email','')}
-# ORG:{content.get('company','')}
-# URL:{content.get('website','')}
-# END:VCARD"""
-#         return RedirectResponse(f"data:text/vcard,{quote(vcard)}")
-
-#     # LOCATION
-#     if qr_type == "location":
-#         lat = content.get("latitude")
-#         lng = content.get("longitude")
-#         return RedirectResponse(f"https://maps.google.com/?q={lat},{lng}")
-
-#     # PAYMENT
-#     if qr_type == "payment":
-#         return RedirectResponse(content.get("payment_url"))
-
-#     # FALLBACK  ]kj k
-#     raise HTTPException(status_code=400, detail="Unsupported QR type")
-
-
-# from fastapi.responses import RedirectResponse, HTMLResponse
-# from urllib.parse import quote
-
-# @api_router.get("/r/{token}")
-# async def redirect_qr(token: str, request: Request):
-#     qr = await db.qr_codes.find_one({"redirect_token": token}, {"_id": 0})
-
-#     if not qr:
-#         return HTMLResponse("<h1>QR not found</h1>", status_code=404)
-
-#     # ================= ANALYTICS =================
-#     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
-#     user_agent = request.headers.get("user-agent", "")
-
-#     await db.scan_events.insert_one({
-#         "scan_id": scan_id,
-#         "qr_id": qr["qr_id"],
-#         "user_id": qr["user_id"],
-#         "timestamp": datetime.now(timezone.utc).isoformat(),
-#         "device": "mobile" if "mobile" in user_agent.lower() else "desktop",
-#         "ip_address": request.client.host if request.client else None
-#     })
-
-#     await db.qr_codes.update_one(
-#         {"qr_id": qr["qr_id"]},
-#         {"$inc": {"scan_count": 1}}
-#     )
-
-#     # ================= REALTIME PUSH =================
-#     for ws in list(active_connections):
-#         try:
-#             await ws.send_json({
-#                 "type": "qr_scan",
-#                 "qr_id": qr["qr_id"]
-#             })
-#         except:
-#             active_connections.remove(ws)
-
-#     qr_type = qr["qr_type"]
-#     content = qr["content"]
-
-#     # ✅ SAFE REDIRECT TYPES
-#     if qr_type == "url":
-#         return RedirectResponse(content.get("url"))
-
-#     if qr_type == "payment":
-#         return RedirectResponse(content.get("payment_url"))
-
-#     if qr_type == "phone":
-#         return RedirectResponse(f"tel:{content.get('phone','')}")
-
-#     if qr_type == "email":
-#         return RedirectResponse(
-#             f"mailto:{content.get('email','')}?"
-#             f"subject={quote(content.get('subject',''))}&"
-#             f"body={quote(content.get('body',''))}"
-#         )
-
-#     if qr_type == "sms":
-#         return RedirectResponse(
-#             f"sms:{content.get('phone','')}?"
-#             f"body={quote(content.get('message',''))}"
-#         )
-
-#     if qr_type == "whatsapp":
-#         return RedirectResponse(
-#             f"https://wa.me/{content.get('phone','')}?"
-#             f"text={quote(content.get('message',''))}"
-#         )
-
-#     if qr_type == "location":
-#         lat = content.get("latitude")
-#         lng = content.get("longitude")
-#         return RedirectResponse(f"https://maps.google.com/?q={lat},{lng}")
-
-#     #  NON-REDIRECT TYPES → LANDING PAGE
-#     return HTMLResponse(
-#         f"""
-#         <html>
-#           <head>
-#             <title>{qr.get('name','QR Code')}</title>
-#             <meta name="viewport" content="width=device-width, initial-scale=1" />
-#             <style>
-#               body {{ font-family: Arial; padding: 24px; }}
-#               .card {{ max-width: 480px; margin: auto; }}
-#             </style>
-#           </head>
-#           <body>
-#             <div class="card">
-#               <h2>{qr.get('name')}</h2>
-
-#               {"<p>" + content.get("text","") + "</p>" if qr_type=="text" else ""}
-              
-#               {"<p><b>WiFi:</b> "+content.get("ssid","")+"</p><p>Password: "+content.get("password","")+"</p>" if qr_type=="wifi" else ""}
-
-#               {"<p>"+content.get("name","")+"</p><p>"+content.get("phone","")+"</p><p>"+content.get("email","")+"</p>" if qr_type=="vcard" else ""}
-#             </div>
-#           </body>
-#         </html>
-#         """
-#     )
-
-
-from fastapi.responses import RedirectResponse, HTMLResponse
-from urllib.parse import quote
-
 @api_router.get("/r/{token}")
 async def redirect_qr(token: str, request: Request):
     qr = await db.qr_codes.find_one({"redirect_token": token}, {"_id": 0})
@@ -1081,14 +1056,52 @@ async def redirect_qr(token: str, request: Request):
     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
     user_agent = request.headers.get("user-agent", "")
 
-    await db.scan_events.insert_one({
+    # More detailed user agent parsing
+    device = "desktop"
+    if any(x in user_agent.lower() for x in ["mobile", "android", "iphone", "ipad"]):
+        device = "mobile"
+    elif "tablet" in user_agent.lower():
+        device = "tablet"
+    
+    # Browser detection
+    browser = "unknown"
+    if "chrome" in user_agent.lower():
+        browser = "Chrome"
+    elif "firefox" in user_agent.lower():
+        browser = "Firefox"
+    elif "safari" in user_agent.lower():
+        browser = "Safari"
+    elif "edge" in user_agent.lower():
+        browser = "Edge"
+    
+    # OS detection
+    os_type = "unknown"
+    if "windows" in user_agent.lower():
+        os_type = "Windows"
+    elif "mac" in user_agent.lower():
+        os_type = "macOS"
+    elif "linux" in user_agent.lower():
+        os_type = "Linux"
+    elif "android" in user_agent.lower():
+        os_type = "Android"
+    elif "ios" in user_agent.lower() or "iphone" in user_agent.lower():
+        os_type = "iOS"
+
+    scan_doc = {
         "scan_id": scan_id,
         "qr_id": qr["qr_id"],
         "user_id": qr["user_id"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "device": "mobile" if "mobile" in user_agent.lower() else "desktop",
-        "ip_address": request.client.host if request.client else None
-    })
+        "device": device,
+        "browser": browser,
+        "os": os_type,
+        "ip_address": request.client.host if request.client else None,
+        "country": None,
+        "city": None,
+        "user_agent": user_agent
+    }
+
+    await db.scan_events.insert_one(scan_doc)
 
     await db.qr_codes.update_one(
         {"qr_id": qr["qr_id"]},
@@ -1142,7 +1155,7 @@ async def redirect_qr(token: str, request: Request):
         lng = content.get("longitude")
         return RedirectResponse(f"https://maps.google.com/?q={lat},{lng}")
 
-    # ===== LANDING PAGE (SAFE) =====lkhlbhjlb
+    # ===== LANDING PAGE (SAFE) =====
     text = str(content.get("text", ""))
     ssid = str(content.get("ssid", ""))
     password = str(content.get("password", ""))
@@ -1175,7 +1188,6 @@ async def redirect_qr(token: str, request: Request):
         status_code=200
     )
 
-
 # ========== ANALYTICS ROUTES ==========
 
 @api_router.get("/qr-codes/{qr_id}/analytics")
@@ -1201,27 +1213,138 @@ async def get_qr_analytics(qr_id: str, user: dict = Depends(get_current_user)):
     
     # Device breakdown
     devices = {}
+    browsers = {}
+    os_stats = {}
+    countries = {}
+    cities = {}
+    
     for scan in scans:
         device = scan.get("device", "unknown")
         devices[device] = devices.get(device, 0) + 1
+        
+        browser = scan.get("browser", "unknown")
+        browsers[browser] = browsers.get(browser, 0) + 1
+        
+        os = scan.get("os", "unknown")
+        os_stats[os] = os_stats.get(os, 0) + 1
+        
+        country = scan.get("country")
+        if country:
+            countries[country] = countries.get(country, 0) + 1
+        
+        city = scan.get("city")
+        if city:
+            cities[city] = cities.get(city, 0) + 1
     
     # Scans over time (last 30 days)
     from collections import defaultdict
     scans_by_date = defaultdict(int)
+    scans_by_hour = defaultdict(int)
+    
     for scan in scans:
         timestamp = scan.get("timestamp")
         if isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
         date_str = timestamp.strftime("%Y-%m-%d")
+        hour_str = timestamp.strftime("%H:00")
         scans_by_date[date_str] += 1
+        scans_by_hour[hour_str] += 1
+    
+    # Convert to sorted lists for charts
+    scans_by_date_list = [{"date": k, "scans": v} for k, v in sorted(scans_by_date.items())]
+    scans_by_hour_list = [{"hour": k, "scans": v} for k, v in sorted(scans_by_hour.items())]
+    
+    # Top locations
+    top_countries = sorted([{"name": k, "count": v} for k, v in countries.items()], key=lambda x: x["count"], reverse=True)[:10]
+    top_cities = sorted([{"name": k, "count": v} for k, v in cities.items()], key=lambda x: x["count"], reverse=True)[:10]
     
     return {
         "total_scans": total_scans,
         "unique_scans": unique_ips,
-        "devices": devices,
-        "scans_by_date": dict(scans_by_date),
-        "recent_scans": scans[:50]  # Last 50 scans
+        "devices": [{"name": k, "count": v} for k, v in devices.items()],
+        "browsers": [{"name": k, "count": v} for k, v in browsers.items()],
+        "operating_systems": [{"name": k, "count": v} for k, v in os_stats.items()],
+        "scans_by_date": scans_by_date_list,
+        "scans_by_hour": scans_by_hour_list,
+        "top_countries": top_countries,
+        "top_cities": top_cities,
+        "recent_scans": scans[-50:][::-1] if scans else []  # Last 50 scans, reversed
     }
+
+@api_router.post("/track-scan/{qr_id}")
+async def track_qr_scan(qr_id: str, request: Request):
+    """Track QR code scan with detailed analytics"""
+    try:
+        qr = await db.qr_codes.find_one({"qr_id": qr_id}, {"_id": 0})
+        if not qr:
+            raise HTTPException(status_code=404, detail="QR code not found")
+        
+        # Parse user agent
+        user_agent = request.headers.get("user-agent", "")
+        
+        # Basic device detection
+        device = "desktop"
+        if any(x in user_agent.lower() for x in ["mobile", "android", "iphone", "ipad"]):
+            device = "mobile"
+        elif "tablet" in user_agent.lower():
+            device = "tablet"
+        
+        # Browser detection
+        browser = "unknown"
+        if "chrome" in user_agent.lower():
+            browser = "Chrome"
+        elif "firefox" in user_agent.lower():
+            browser = "Firefox"
+        elif "safari" in user_agent.lower():
+            browser = "Safari"
+        elif "edge" in user_agent.lower():
+            browser = "Edge"
+        
+        # OS detection
+        os_type = "unknown"
+        if "windows" in user_agent.lower():
+            os_type = "Windows"
+        elif "mac" in user_agent.lower():
+            os_type = "macOS"
+        elif "linux" in user_agent.lower():
+            os_type = "Linux"
+        elif "android" in user_agent.lower():
+            os_type = "Android"
+        elif "ios" in user_agent.lower() or "iphone" in user_agent.lower():
+            os_type = "iOS"
+        
+        # Get IP address
+        ip_address = request.client.host if request.client else None
+        
+        # Try to get location from IP (basic - in production use a geolocation service)
+        country = None
+        city = None
+        
+        # Log scan event
+        scan_id = f"scan_{uuid.uuid4().hex[:12]}"
+        scan_doc = {
+            "scan_id": scan_id,
+            "qr_id": qr_id,
+            "user_id": qr["user_id"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "device": device,
+            "browser": browser,
+            "os": os_type,
+            "ip_address": ip_address,
+            "country": country,
+            "city": city,
+            "user_agent": user_agent
+        }
+        
+        await db.scan_events.insert_one(scan_doc)
+        
+        # Increment scan count
+        await db.qr_codes.update_one({"qr_id": qr_id}, {"$inc": {"scan_count": 1}})
+        
+        return {"status": "success", "scan_id": scan_id}
+    except Exception as e:
+        logger.error(f"Error tracking scan: {e}")
+        return {"status": "error", "message": str(e)}
 
 # ========== BILLING ROUTES ==========
 
@@ -1234,7 +1357,6 @@ async def get_plans():
         {"plan_name": "enterprise", "price": 99.99, "qr_limit": -1, "features": ["Unlimited QR codes", "All features", "API access", "White-label", "Dedicated support"]}
     ]
     return plans
-
 
 @api_router.post("/billing/checkout")
 async def create_checkout(
@@ -1293,8 +1415,6 @@ async def create_checkout(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 @api_router.get("/billing/status/{session_id}")
 async def checkout_status(session_id: str, user: dict = Depends(get_current_user)):
     session = stripe.checkout.Session.retrieve(session_id)
@@ -1322,8 +1442,6 @@ async def checkout_status(session_id: str, user: dict = Depends(get_current_user
         "status": session.status,
         "payment_status": session.payment_status
     }
-
-
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
@@ -1376,7 +1494,6 @@ async def websocket_endpoint(ws: WebSocket):
         pass
     finally:
         active_connections.remove(ws)
-
 
 # ========== MAIN APP ==========
 

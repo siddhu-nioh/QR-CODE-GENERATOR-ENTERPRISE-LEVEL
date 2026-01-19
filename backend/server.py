@@ -949,7 +949,7 @@ END:VCARD"""
     if qr_type == "payment":
         return RedirectResponse(content.get("payment_url"))
 
-    # FALLBACK
+    # FALLBACK  ]kj k
     raise HTTPException(status_code=400, detail="Unsupported QR type")
 
 

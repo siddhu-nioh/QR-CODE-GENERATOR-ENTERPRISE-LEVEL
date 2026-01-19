@@ -91,6 +91,30 @@ const Dashboard = ({ user }) => {
     }
   };
 
+
+  const handleMakeDynamic = async (qrId) => {
+  if (!window.confirm("Convert this QR to Dynamic? This enables analytics and editable destination.")) {
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem("session_token");
+
+    await axios.post(
+      `${API}/qr-codes/${qrId}/make-dynamic`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    toast.success("QR converted to Dynamic");
+    fetchQRCodes();
+  } catch (err) {
+    toast.error(err.response?.data?.detail || "Conversion failed");
+  }
+};
+
+
+
   const canCreateMore = user?.plan === 'free' ? qrCodes.length < 5 : true;
 
   return (
@@ -189,6 +213,24 @@ const Dashboard = ({ user }) => {
                       <BarChart className="h-4 w-4" />
                     </Button>
                   )}
+
+                  {/* Dynamic Toggle */}
+<Button
+  size="sm"
+  variant={qr.is_dynamic ? "secondary" : "outline"}
+  disabled={qr.is_dynamic || user?.plan === "free"}
+  onClick={() => handleMakeDynamic(qr.qr_id)}
+  title={
+    user?.plan === "free"
+      ? "Upgrade to Pro to enable Dynamic QR"
+      : qr.is_dynamic
+      ? "Already Dynamic"
+      : "Convert to Dynamic"
+  }
+>
+  {qr.is_dynamic ? "Dynamic" : "Make Dynamic"}
+</Button>
+
                   <Button size="sm" variant="outline" onClick={() => navigate(`/designer/${qr.qr_id}`)} data-testid={`edit-button-${qr.qr_id}`}>
                     <Edit className="h-4 w-4" />
                   </Button>

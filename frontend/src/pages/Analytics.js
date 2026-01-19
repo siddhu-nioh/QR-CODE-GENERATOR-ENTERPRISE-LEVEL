@@ -7,6 +7,56 @@ import { Card } from '../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Activity, Smartphone, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+
+const QR_FIELD_CONFIG = {
+  url: [{ key: "url", label: "Destination URL", placeholder: "https://example.com" }],
+
+  text: [{ key: "text", label: "Text", placeholder: "Enter text" }],
+
+  phone: [{ key: "phone", label: "Phone Number", placeholder: "+1234567890" }],
+
+  sms: [
+    { key: "phone", label: "Phone Number" },
+    { key: "message", label: "Message" }
+  ],
+
+  whatsapp: [
+    { key: "phone", label: "WhatsApp Number" },
+    { key: "message", label: "Message" }
+  ],
+
+  email: [
+    { key: "email", label: "Email Address" },
+    { key: "subject", label: "Subject" },
+    { key: "body", label: "Email Body" }
+  ],
+
+  wifi: [
+    { key: "ssid", label: "WiFi Name (SSID)" },
+    { key: "password", label: "Password" },
+    { key: "encryption", label: "Encryption (WPA/WEP)" }
+  ],
+
+  vcard: [
+    { key: "name", label: "Full Name" },
+    { key: "phone", label: "Phone" },
+    { key: "email", label: "Email" },
+    { key: "company", label: "Company" },
+    { key: "website", label: "Website" }
+  ],
+
+  location: [
+    { key: "latitude", label: "Latitude" },
+    { key: "longitude", label: "Longitude" }
+  ],
+
+  payment: [
+    { key: "payment_url", label: "Payment URL" }
+  ]
+};
 
 const Analytics = ({ user }) => {
   const { qrId } = useParams();
@@ -15,6 +65,47 @@ const Analytics = ({ user }) => {
   const [analytics, setAnalytics] = useState(null);
   const [qrData, setQrData] = useState(null);
 
+//   const [editData, setEditData] = useState({});
+// const [saving, setSaving] = useState(false);
+
+const [editName, setEditName] = useState("");
+const [editContent, setEditContent] = useState({});
+const [saving, setSaving] = useState(false);
+
+
+useEffect(() => {
+  if (qrData) {
+    setEditName(qrData.name || "");
+    setEditContent(qrData.content || {});
+  }
+}, [qrData]);
+
+
+
+const handleUpdateQR = async () => {
+  try {
+    setSaving(true);
+    const token = localStorage.getItem("session_token");
+
+    await axios.put(
+      `${API}/qr-codes/${qrId}`,
+      {
+        name: editName,
+        content: editContent
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    toast.success("QR updated successfully");
+    fetchAnalytics();
+  } catch (err) {
+    toast.error(err.response?.data?.detail || "Update failed");
+  } finally {
+    setSaving(false);
+  }
+};
 
 
   // useEffect(() => {
@@ -153,6 +244,50 @@ useEffect(() => {
               </div>
             </Card>
           </div>
+         {qrData?.is_dynamic && (
+  <Card className="p-6 mb-8">
+    <h2 className="font-heading font-semibold text-xl mb-4">
+      Edit Dynamic QR
+    </h2>
+
+    {/* QR NAME */}
+    <div className="mb-4">
+      <Label>QR Name</Label>
+      <Input
+        value={editName}
+        onChange={(e) => setEditName(e.target.value)}
+        className="mt-2"
+      />
+    </div>
+
+    {/* TYPE-SPECIFIC FIELDS */}
+    {QR_FIELD_CONFIG[qrData.qr_type]?.map((field) => (
+      <div key={field.key} className="mb-4">
+        <Label>{field.label}</Label>
+        <Input
+          value={editContent[field.key] || ""}
+          placeholder={field.placeholder || ""}
+          onChange={(e) =>
+            setEditContent({
+              ...editContent,
+              [field.key]: e.target.value
+            })
+          }
+          className="mt-2"
+        />
+      </div>
+    ))}
+
+    <Button
+      className="mt-4"
+      onClick={handleUpdateQR}
+      disabled={saving}
+    >
+      {saving ? "Saving..." : "Update QR"}
+    </Button>
+  </Card>
+)}
+
 
           {/* Charts */}
           <div className="grid md:grid-cols-2 gap-6">

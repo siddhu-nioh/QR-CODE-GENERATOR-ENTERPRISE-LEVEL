@@ -709,8 +709,46 @@ async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get
     
     return StreamingResponse(io.BytesIO(img_bytes), media_type="image/png")
 
+# for making singel qr to upate to dynamic --- we have already one fucnitonla route tht idpates all staic qrs to updae dynamich if biling route if its succes but its not feasible as samerediret token url wwhic is used for realime scans whcin single redirect url will apply to all teh converted staic qrs once payment is done so first startres we implent single onversion as its fucnional but apllying signle smae edirct toekn url its not convertion all with same url to dyucnic son we are implemntimg ad this and then after we will count how may stic are here when billing fone and then by count one by one we create a fcunion async one whjcih will convert each one dymicna nd asing a redirect url one by one unti the count decreasses to zero if they have many qr coudes we wil use adaveced algorithms to reduce the time and increase speed and to reduce cache memery 
 
-    
+@api_router.post("/qr-codes/{qr_id}/make-dynamic")
+async def make_qr_dynamic(qr_id: str, user: dict = Depends(get_current_user)):
+    # Only paid users
+    if user.get("plan") == "free":
+        raise HTTPException(status_code=403, detail="Upgrade required")
+
+    qr = await db.qr_codes.find_one(
+        {"qr_id": qr_id, "user_id": user["user_id"]},
+        {"_id": 0}
+    )
+
+    if not qr:
+        raise HTTPException(status_code=404, detail="QR not found")
+
+    if qr.get("is_dynamic"):
+        return {"message": "QR already dynamic"}
+
+    redirect_token = f"r_{uuid.uuid4().hex[:8]}"
+
+    await db.qr_codes.update_one(
+        {"qr_id": qr_id},
+        {
+            "$set": {
+                "is_dynamic": True,
+                "redirect_token": redirect_token,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+
+    return {
+        "message": "QR converted to dynamic",
+        "redirect_token": redirect_token
+    }
+
+
+
+#--------------------------------------------------------------------------------------------------
 @api_router.get("/public/qr/{qr_id}/image")
 async def public_qr_image(qr_id: str, sig: str):
     qr = await db.qr_codes.find_one({"qr_id": qr_id}, {"_id": 0})

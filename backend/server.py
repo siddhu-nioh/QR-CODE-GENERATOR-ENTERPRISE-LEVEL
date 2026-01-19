@@ -1131,7 +1131,7 @@ async def redirect_qr(token: str, request: Request):
         lng = content.get("longitude")
         return RedirectResponse(f"https://maps.google.com/?q={lat},{lng}")
 
-    # ===== LANDING PAGE (SAFE) =====
+    # ===== LANDING PAGE (SAFE) =====lkhlbhjlb
     text = str(content.get("text", ""))
     ssid = str(content.get("ssid", ""))
     password = str(content.get("password", ""))

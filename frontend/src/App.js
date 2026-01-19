@@ -25,6 +25,7 @@ import HelpPage from './pages/HelpPage';
 import SecurityPage from './pages/SecurityPage';
 
 import './App.css';
+import { useEffect, useState } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;

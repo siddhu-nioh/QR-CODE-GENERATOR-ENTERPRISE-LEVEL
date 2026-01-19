@@ -14,8 +14,8 @@ import {
   TrendingUp, Users, Eye, Download, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 
 const QR_FIELD_CONFIG = {
   url: [{ key: "url", label: "Destination URL", placeholder: "https://example.com" }],

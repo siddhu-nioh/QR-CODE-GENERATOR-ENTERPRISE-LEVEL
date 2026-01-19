@@ -38,6 +38,27 @@ const QRDesigner = ({ user }) => {
     logo_data: null
   });
 
+  const updatePreview = useCallback(async (currentDesign) => {
+    try {
+      const token = localStorage.getItem('session_token');
+      const sig = qrData?.signature;
+      
+      if (!sig) {
+        // Fallback to generating a basic preview
+        console.log('No signature available, using fallback preview');
+        return;
+      }
+      
+      // For now, use the public image endpoint with design params
+      const previewUrl = `${API}/public/qr/${qrId}/image?sig=${sig}&t=${Date.now()}`;
+      setPreviewUrl(previewUrl);
+    } catch (error) {
+      console.error('Error updating preview:', error);
+      // Fallback to basic preview
+      setPreviewUrl(null);
+    }
+  }, [qrId, qrData]);
+
   const fetchQRCode = useCallback(async () => {
     try {
       const token = localStorage.getItem('session_token');
@@ -95,26 +116,7 @@ const QRDesigner = ({ user }) => {
     fetchQRCode();
   }, [fetchQRCode , ]);
 
-  const updatePreview = useCallback(async (currentDesign) => {
-    try {
-      const token = localStorage.getItem('session_token');
-      const sig = qrData?.signature;
-      
-      if (!sig) {
-        // Fallback to generating a basic preview
-        console.log('No signature available, using fallback preview');
-        return;
-      }
-      
-      // For now, use the public image endpoint with design params
-      const previewUrl = `${API}/public/qr/${qrId}/image?sig=${sig}&t=${Date.now()}`;
-      setPreviewUrl(previewUrl);
-    } catch (error) {
-      console.error('Error updating preview:', error);
-      // Fallback to basic preview
-      setPreviewUrl(null);
-    }
-  }, [qrId, qrData]);
+  
 
   useEffect(() => {
     if (qrData) {
@@ -475,7 +477,7 @@ const QRDesigner = ({ user }) => {
                   </TabsContent>
 
                   {/* Templates Tab */}
-                  <TabsContent value="templates" className="mt-4">
+                  {/* <TabsContent value="templates" className="mt-4">
                     <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
                       {Object.entries(templates).map(([key, template]) => (
                         <button
@@ -494,7 +496,71 @@ const QRDesigner = ({ user }) => {
                         </button>
                       ))}
                     </div>
-                  </TabsContent>
+                  </TabsContent> */}
+                 
+<TabsContent value="templates" className="mt-4">
+  <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+    {Object.entries(templates).map(([key, template]) => (
+      <button
+        key={key}
+        onClick={() => handleTemplateSelect(key)}
+        className="p-4 border rounded-lg hover:border-primary hover:shadow-md transition-all text-left flex items-center gap-3"
+        data-testid={`template-${key}`}
+      >
+        <div className="relative">
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center"
+            style={{ 
+              backgroundColor: template.background_color || '#FFFFFF',
+              border: `2px solid ${template.foreground_color || '#000000'}`
+            }}
+          >
+            {template.logo_data ? (
+              <img 
+                src={template.logo_data} 
+                alt={template.name}
+                className="w-8 h-8 object-contain"
+              />
+            ) : (
+              <div 
+                className="w-6 h-6 rounded"
+                style={{ backgroundColor: template.foreground_color || '#000000' }}
+              />
+            )}
+          </div>
+          {/* Small QR pattern preview */}
+          <div className="absolute -bottom-1 -right-1 w-4 h-4">
+            {template.pattern_style === 'dots' ? (
+              <div className="w-full h-full rounded-full" style={{ backgroundColor: template.foreground_color }} />
+            ) : template.pattern_style === 'rounded' ? (
+              <div className="w-full h-full rounded-sm" style={{ backgroundColor: template.foreground_color }} />
+            ) : template.pattern_style === 'circle' ? (
+              <div className="w-full h-full rounded-full" style={{ backgroundColor: template.foreground_color }} />
+            ) : (
+              <div className="w-full h-full" style={{ backgroundColor: template.foreground_color }} />
+            )}
+          </div>
+        </div>
+        <div className="flex-1">
+          <div className="font-medium">{template.name}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: template.foreground_color }} />
+              <span>FG</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: template.background_color }} />
+              <span>BG</span>
+            </div>
+            {template.gradient_enabled && (
+              <span className="text-xs px-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded">Gradient</span>
+            )}
+          </div>
+        </div>
+      </button>
+    ))}
+  </div>
+</TabsContent>
                 </Tabs>
               </Card>
             </div>

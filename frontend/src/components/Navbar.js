@@ -103,6 +103,17 @@ const Navbar = ({ user }) => {
       }
     };
   }, []);
+  const handleQRNavigation = (route) => {
+  if (user) {
+    // User is logged in, go to generator
+    navigate('/generator');
+    setActiveDropdown(null);
+  } else {
+    // User is not logged in, go to login page
+    navigate('/login');
+    setActiveDropdown(null);
+  }
+};
 
   return (
     <>
@@ -119,7 +130,7 @@ const Navbar = ({ user }) => {
           <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
             
             {/* Home */}
-            <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
+            <Button variant="ghost" onClick={() => user ? navigate('/dashboard') : navigate('/')} className="gap-2">
               <Home className="h-4 w-4" />
               Home
             </Button>
@@ -144,31 +155,30 @@ const Navbar = ({ user }) => {
                   onMouseEnter={handleDropdownMouseEnter}
                   onMouseLeave={handleDropdownMouseLeave}
                 >
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2 mb-4">
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        Choose QR Code Type
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-1">Select what your QR Code will do</p>
-                    </div>
-                    {qrCodeTypes.map((type) => (
-                      <Link
-                        key={type.label}
-                        to={type.route}
-                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent group/card transition-all duration-150 hover:scale-[1.02]"
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className={`p-2 rounded-md ${type.color} group-hover/card:scale-110 transition-transform duration-150`}>
-                          <type.icon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{type.label}</div>
-                          <div className="text-sm text-muted-foreground">{type.desc}</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
+                 <div className="grid grid-cols-2 gap-4">
+  <div className="col-span-2 mb-4">
+    <h3 className="font-semibold text-lg flex items-center gap-2">
+      <Sparkles className="h-5 w-5 text-primary" />
+      Choose QR Code Type
+    </h3>
+    <p className="text-sm text-muted-foreground mt-1">Select what your QR Code will do</p>
+  </div>
+  {qrCodeTypes.map((type) => (
+    <button
+      key={type.label}
+      onClick={() => handleQRNavigation(type.route)}
+      className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent group/card transition-all duration-150 hover:scale-[1.02] text-left w-full"
+    >
+      <div className={`p-2 rounded-md ${type.color} group-hover/card:scale-110 transition-transform duration-150`}>
+        <type.icon className="h-5 w-5" />
+      </div>
+      <div>
+        <div className="font-medium">{type.label}</div>
+        <div className="text-sm text-muted-foreground">{type.desc}</div>
+      </div>
+    </button>
+  ))}
+</div>
                   <div className="mt-6 pt-6 border-t">
                     <div className="flex items-center justify-between">
                       <div>

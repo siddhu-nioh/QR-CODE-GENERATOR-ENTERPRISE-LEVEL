@@ -7,6 +7,7 @@ import {
   ShieldCheck, Download, Upload, Cpu
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Navbar from '@/components/Navbar';
 
 const SecurityPage = ({user}) => {
   const navigate = useNavigate();

@@ -150,7 +150,7 @@ const Navbar = ({ user }) => {
               
               {/* Mega Dropdown */}
               {activeDropdown === 'create' && (
-                <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-[42rem] bg-popover border rounded-xl shadow-xl p-6 animate-in fade-in slide-in-from-top-5 duration-200">
+                <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-[42rem] bg-popover border rounded-xl shadow-xl p-6 animate-in fade-in slide-in-from-top-5 duration-500">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2 mb-4">
                       <h3 className="font-semibold text-lg flex items-center gap-2">

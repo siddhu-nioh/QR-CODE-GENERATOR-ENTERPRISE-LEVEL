@@ -8,6 +8,7 @@ import {
   Smartphone, Download, Printer, Globe,
   Shield, Clock, Users, CheckCircle
 } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 const HelpPage = ({user}) => {
   const [searchQuery, setSearchQuery] = useState('');

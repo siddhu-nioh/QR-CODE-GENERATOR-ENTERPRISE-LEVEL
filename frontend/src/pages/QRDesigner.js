@@ -89,11 +89,11 @@ const QRDesigner = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [qrId, navigate]);
+  }, [qrId, navigate, design , updatePreview]);
 
   useEffect(() => {
     fetchQRCode();
-  }, [fetchQRCode]);
+  }, [fetchQRCode , ]);
 
   const updatePreview = useCallback(async (currentDesign) => {
     try {

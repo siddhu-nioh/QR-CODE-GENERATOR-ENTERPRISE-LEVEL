@@ -8,6 +8,7 @@ import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { API } from '../App';
+import Navbar from '@/components/Navbar';
 
 const ContactPage = ({user}) => {
   const [formData, setFormData] = useState({

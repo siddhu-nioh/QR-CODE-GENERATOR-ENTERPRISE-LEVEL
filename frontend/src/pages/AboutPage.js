@@ -3,6 +3,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Users, Target, Globe, Award, TrendingUp, Heart, Clock, Shield, Zap, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Navbar from '@/components/Navbar';
 
 const AboutPage = ({user}) => {
   const navigate = useNavigate();

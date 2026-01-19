@@ -44,7 +44,7 @@ const FeaturesPage = ({user}) => {
 
   return (
     <div className="min-h-screen py-12">
-            <Navbar user={user} />
+            <Navbarr user={user} />
       <div className="container mx-auto px-4">
         <h1 className="text-4xl font-bold text-center mb-4">Features</h1>
         <p className="text-xl text-muted-foreground text-center max-w-3xl mx-auto mb-12">

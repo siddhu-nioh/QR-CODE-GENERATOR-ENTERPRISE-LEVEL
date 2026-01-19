@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../components/ui/card';
 import { BookOpen, FileQuestion, BarChart3, Gift, Users } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 const ResourcesPage = ({user}) => {
   const resources = [

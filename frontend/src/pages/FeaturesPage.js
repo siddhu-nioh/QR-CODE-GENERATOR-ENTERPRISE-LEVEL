@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from './ui/card';
+import { Card } from '../components/ui/card';
 import { BarChart3, ImageIcon, Settings, Shield, Zap, Globe, Users, Bell } from 'lucide-react';
 
 const FeaturesPage = ({user}) => {

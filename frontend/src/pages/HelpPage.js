@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Card } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { 
   HelpCircle, Search, BookOpen, MessageSquare, 
   Video, Mail, FileQuestion, Settings,

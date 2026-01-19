@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+// import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Toaster } from './components/ui/sonner';
+
+// Import existing pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -13,19 +15,24 @@ import BillingSuccess from './pages/BillingSuccess';
 import Pricing from './pages/Pricing';
 import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Import new pages
+import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+import FeaturesPage from './pages/FeaturesPage';
+import ResourcesPage from './pages/ResourcesPage';
+import HelpPage from './pages/HelpPage';
+import SecurityPage from './pages/SecurityPage';
+
 import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 axios.defaults.withCredentials = true;
 
-function AppRouter() {
-  const location = useLocation();
-  
-  // Check URL fragment for session_id synchronously during render
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
+function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check if user is logged in on app load
@@ -46,43 +53,87 @@ function AppRouter() {
       setLoading(false);
     }
   }, []);
-    const withNavbar = (Component, props = {}) => (
-    <>
-      <Navbar user={user} />
-      <Component {...props} />
-    </>
-  );
-  return (
-    <Routes>
-      <Route path="/" element={<LandingPage user={user} />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/pricing" element={<Pricing />} />
-         <Route path="/about" element={withNavbar(AboutPage)} />
-          <Route path="/contact" element={withNavbar(ContactPage)} />
-          <Route path="/features" element={withNavbar(FeaturesPage)} />
-          <Route path="/resources" element={withNavbar(ResourcesPage)} />
-          <Route path="/help" element={withNavbar(HelpPage)} />
-          <Route path="/security" element={withNavbar(SecurityPage)} />
-          <Route path="/privacy" element={withNavbar(SecurityPage)} />
-          <Route path="/terms" element={withNavbar(SecurityPage)} />
-          <Route path="/blog" element={withNavbar(ResourcesPage)} />
-          <Route path="/case-studies" element={withNavbar(ResourcesPage)} />
-          <Route path="/tools" element={withNavbar(ResourcesPage)} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/generator" element={<ProtectedRoute><QRGenerator /></ProtectedRoute>} />
-      <Route path="/designer/:qrId" element={<ProtectedRoute><QRDesigner /></ProtectedRoute>} />
-      <Route path="/analytics/:qrId" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-      <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
-    </Routes>
-  );
-}
 
-function App() {
+  // Custom component to handle Stripe callback
+  const StripeCallbackHandler = () => {
+    const location = useLocation();
+    
+    // Check URL fragment for session_id
+    if (location.hash?.includes('session_id=')) {
+      return <AuthCallback setUser={setUser} />;
+    }
+    
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="App">
       <BrowserRouter>
-        <AppRouter />
+        {/* Stripe callback handler - placed outside Routes to always check URL */}
+        <StripeCallbackHandler />
+        
+        <Routes>
+          {/* Public Pages (they have their own Navbar inside with user prop) */}
+          <Route path="/" element={<Landing user={user} />} />
+          <Route path="/pricing" element={<Pricing user={user} />} />
+          <Route path="/about" element={<AboutPage user={user} />} />
+          <Route path="/contact" element={<ContactPage user={user} />} />
+          <Route path="/features" element={<FeaturesPage user={user} />} />
+          <Route path="/resources" element={<ResourcesPage user={user} />} />
+          <Route path="/help" element={<HelpPage user={user} />} />
+          <Route path="/security" element={<SecurityPage user={user} />} />
+          <Route path="/privacy" element={<SecurityPage user={user} />} />
+          <Route path="/terms" element={<SecurityPage user={user} />} />
+          <Route path="/blog" element={<ResourcesPage user={user} />} />
+          <Route path="/case-studies" element={<ResourcesPage user={user} />} />
+          <Route path="/tools" element={<ResourcesPage user={user} />} />
+
+          {/* Auth Pages without user prop */}
+          <Route path="/login" element={<Login  />} />
+
+          {/* Protected Dashboard Pages - ProtectedRoute fetches user internally */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/generator" element={
+            <ProtectedRoute>
+              <QRGenerator />
+            </ProtectedRoute>
+          } />
+          <Route path="/designer/:qrId" element={
+            <ProtectedRoute>
+              <QRDesigner />
+            </ProtectedRoute>
+          } />
+          <Route path="/analytics/:qrId" element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/billing" element={
+            <ProtectedRoute>
+              <Billing />
+            </ProtectedRoute>
+          } />
+          <Route path="/billing/success" element={
+            <ProtectedRoute>
+              <BillingSuccess />
+            </ProtectedRoute>
+          } />
+
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </BrowserRouter>
       <Toaster position="top-right" richColors />
     </div>

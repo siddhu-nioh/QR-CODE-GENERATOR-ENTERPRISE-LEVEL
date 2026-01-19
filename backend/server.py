@@ -680,7 +680,10 @@ async def get_qr_image(qr_id: str, format: str = "png", user: dict = Depends(get
     # Generate content
     if qr["is_dynamic"]:
         # For dynamic, encode redirect URL
-        redirect_url = f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/r/{qr['redirect_token']}"
+        redirect_url = (
+    f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
+)
+
         qr_content = redirect_url
     else:
         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
@@ -725,10 +728,15 @@ async def public_qr_image(qr_id: str, sig: str):
 
     # Generate content
     if qr["is_dynamic"]:
-        redirect_url = f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/r/{qr['redirect_token']}"
+        # For dynamic, encode redirect URL
+        redirect_url = (
+    f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
+)
+
         qr_content = redirect_url
     else:
         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
+    
 
     img_bytes = create_qr_image(qr_content, qr.get("design"))
 

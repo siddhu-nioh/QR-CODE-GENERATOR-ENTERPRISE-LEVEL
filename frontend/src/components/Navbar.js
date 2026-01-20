@@ -77,9 +77,9 @@ const Navbar = ({ user }) => {
   const accountMenuItems = user ? [
     { icon: UserCircle, label: 'My Account', desc: 'View & edit profile', route: '/account', color: 'text-blue-600' },
     { icon: CreditCardIcon, label: 'Billing & Plans', desc: 'Manage subscription', route: '/billing', color: 'text-purple-600' },
-    { icon: Key, label: 'Security', desc: 'Password & 2FA', route: '/security', color: 'text-green-600' },
-    { icon: Bell, label: 'Notifications', desc: 'Email preferences', route: '/notifications', color: 'text-amber-600' },
-    { icon: BarChart3, label: 'Analytics', desc: 'View QR statistics', route: '/dashboard', color: 'text-indigo-600' },
+    { icon: Key, label: 'Security', desc: 'Password & 2FA', route: '/account', color: 'text-green-600' },
+    // { icon: Bell, label: 'Notifications', desc: 'Email preferences', route: '/notifications', color: 'text-amber-600' },
+    { icon: BarChart3, label: 'Analytics', desc: 'View QR statistics', route: '/account', color: 'text-indigo-600' },
     { icon: QrCode, label: 'My QR Codes', desc: 'Manage all QR codes', route: '/dashboard', color: 'text-primary' },
     { type: 'divider' },
     { icon: LogOutIcon, label: 'Log Out', desc: 'Sign out of account', action: handleLogout, color: 'text-red-600' },

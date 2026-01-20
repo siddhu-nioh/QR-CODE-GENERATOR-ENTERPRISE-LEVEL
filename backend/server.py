@@ -788,37 +788,37 @@ async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
         logger.error(f"Error uploading logo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.post("/upload-logo")
-async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
-    """Upload logo for QR code"""
-    try:
-        form = await request.form()
-        logo_file = form.get("logo")
+# @api_router.post("/upload-logo")
+# async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
+#     """Upload logo for QR code"""
+#     try:
+#         form = await request.form()
+#         logo_file = form.get("logo")
         
-        if not logo_file:
-            raise HTTPException(status_code=400, detail="No logo file provided")
+#         if not logo_file:
+#             raise HTTPException(status_code=400, detail="No logo file provided")
         
-        # Read file content
-        logo_content = await logo_file.read()
+#         # Read file content
+#         logo_content = await logo_file.read()
         
-        # Validate image
-        try:
-            img = Image.open(io.BytesIO(logo_content))
-            img.verify()
-        except:
-            raise HTTPException(status_code=400, detail="Invalid image file")
+#         # Validate image
+#         try:
+#             img = Image.open(io.BytesIO(logo_content))
+#             img.verify()
+#         except:
+#             raise HTTPException(status_code=400, detail="Invalid image file")
         
-        # Convert to base64
-        import base64
-        logo_base64 = base64.b64encode(logo_content).decode('utf-8')
-        logo_data_url = f"data:image/png;base64,{logo_base64}"
+#         # Convert to base64
+#         import base64
+#         logo_base64 = base64.b64encode(logo_content).decode('utf-8')
+#         logo_data_url = f"data:image/png;base64,{logo_base64}"
         
-        return {"logo_data": logo_data_url}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error uploading logo: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {"logo_data": logo_data_url}
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error uploading logo: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 # ========== QR CODE ROUTES ==========
 
@@ -1049,12 +1049,12 @@ async def make_qr_dynamic(qr_id: str, user: dict = Depends(get_current_user)):
 #         media_type="image/png",
 #         headers={"Cache-Control": "public, max-age=3600"}
 #     )
-
 @api_router.get("/public/qr/{qr_id}/image")
 async def public_qr_image(
     qr_id: str, 
     sig: str,
-    # Add design parameters
+    request: Request,  # ADD THIS LINE - FIXES THE ERROR
+    # Optional design parameters
     fg: Optional[str] = None,
     bg: Optional[str] = None,
     style: Optional[str] = None,
@@ -1093,63 +1093,68 @@ async def public_qr_image(
     else:
         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
 
-    # Merge design parameters (query params override stored design)
+    # Start with stored design, or empty dict
     design = qr.get("design") or {}
-
-    logo_type = request.query_params.get("logo_type")
-    logo_name = request.query_params.get("logo_name")
     
+    # ========== HANDLE DESIGN PARAMETERS FROM QUERY ==========
+    
+    # REMOVE THESE LINES - THEY'RE REDUNDANT (you already have them as parameters)
+    # logo_type = request.query_params.get("logo_type")  # DELETE THIS
+    # logo_name = request.query_params.get("logo_name")  # DELETE THIS
+    
+    # Handle preloaded logo using the function parameters
     if logo_type == "preloaded" and logo_name:
-        logo_data_url = await get_preloaded_logo(logo_name)
+        logo_data_url = get_preloaded_logo(logo_name)  # Remove await since it's not async
         if logo_data_url:
             design["logo_data"] = logo_data_url
-    
+            design["logo_type"] = "preloaded"
+            design["template_logo"] = logo_name
     
     # Apply query parameters if provided
     if fg:
-        design["foreground_color"] = f"#{fg}"
+        design["foreground_color"] = f"#{fg}" if not fg.startswith("#") else fg
     if bg:
-        design["background_color"] = f"#{bg}"
+        design["background_color"] = f"#{bg}" if not bg.startswith("#") else bg
+    
+    # Pattern and error correction
     if style:
         design["pattern_style"] = style
     if ec:
         design["error_correction"] = ec
     
-    # Gradient parameters
+    # Gradient
     if gradient:
         design["gradient_enabled"] = True
     if g1:
-        design["gradient_color1"] = f"#{g1}"
+        design["gradient_color1"] = f"#{g1}" if not g1.startswith("#") else g1
     if g2:
-        design["gradient_color2"] = f"#{g2}"
+        design["gradient_color2"] = f"#{g2}" if not g2.startswith("#") else g2
     if gtype:
         design["gradient_type"] = gtype
     if gdir:
         design["gradient_direction"] = gdir
     
-    # Frame parameters
+    # Frame
     if frame:
         design["frame_style"] = frame
     if fc:
-        design["frame_color"] = f"#{fc}"
+        design["frame_color"] = f"#{fc}" if not fc.startswith("#") else fc
     if ftext:
         design["frame_text"] = ftext
     
-    # Logo handling
-    if logo:
-        design["logo_type"] = logo_type
-        if logo_type == "preloaded" and logo_name:
-            design["template_logo"] = logo_name
-            # Find logo in PRELOADED_LOGOS (you'll need to define this on backend)
-            design["logo_data"] = None
-        elif logo_type == "custom" and logo_data:
-            try:
-                design["logo_data"] = logo_data
-            except:
-                design["logo_data"] = None
+    # Handle custom logo from parameters
+    if logo_type == "custom" and logo_data:
+        try:
+            design["logo_data"] = logo_data
+            design["logo_type"] = "custom"
+        except:
+            pass
     
+    # Template key
     if template_key:
         design["template_key"] = template_key
+    
+    # ========== END OF DESIGN PARAMETERS ==========
 
     # Generate image with customization
     img_bytes = create_qr_image(qr_content, design)

@@ -86,14 +86,12 @@ function App() {
           {/* Public Pages (they have their own Navbar inside with user prop) */}
           <Route path="/" element={<Landing user={user} />} />
           <Route path="/pricing" element={<Pricing user={user} />} />
-          <Route path="/about" element={   <ProtectedRoute>
-            <AboutPage user={user} />
-               </ProtectedRoute>} />
-          <Route path="/contact" element={   <ProtectedRoute><ContactPage user={user} /> </ProtectedRoute>} />
-          <Route path="/features" element={<ProtectedRoute><FeaturesPage user={user} /> </ProtectedRoute>} />
-          <Route path="/resources" element={   <ProtectedRoute><ResourcesPage user={user} /> </ProtectedRoute>} />
-          <Route path="/help" element={   <ProtectedRoute><HelpPage user={user} /></ProtectedRoute>} />
-          <Route path="/security" element={   <ProtectedRoute><SecurityPage user={user}/></ProtectedRoute> } />
+          <Route path="/about" element={<AboutPage user={user} />} />
+          <Route path="/contact" element={<ContactPage user={user} />} />
+          <Route path="/features" element={<FeaturesPage user={user} />} />
+          <Route path="/resources" element={<ResourcesPage user={user} />} />
+          <Route path="/help" element={<HelpPage user={user} />} />
+          <Route path="/security" element={<SecurityPage user={user} />} />
           <Route path="/privacy" element={<SecurityPage user={user} />} />
           <Route path="/terms" element={<SecurityPage user={user} />} />
           <Route path="/blog" element={<ResourcesPage user={user} />} />

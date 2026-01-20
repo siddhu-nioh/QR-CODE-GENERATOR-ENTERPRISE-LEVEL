@@ -1,12 +1,12 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Check, QrCode } from 'lucide-react';
 
 const Pricing = () => {
   const navigate = useNavigate();
-
+const location = useLocation();
   const plans = [
     {
       name: 'Free',
@@ -39,6 +39,14 @@ const Pricing = () => {
     }
   ];
 
+
+  const handleBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1); // Go back in history
+    } else {
+      navigate(fallbackPath); // Go to dashboard/home
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-secondary/20 to-background" data-testid="pricing-page">
       {/* Header */}
@@ -67,6 +75,14 @@ const Pricing = () => {
                 Start free and scale as you grow
               </p>
             </div>
+             <Button 
+      variant="outline"
+      onClick={handleBack}
+      className="flex items-center gap-2"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back
+    </Button>
 
             <div className="grid md:grid-cols-4 gap-6">
               {plans.map((plan, idx) => (

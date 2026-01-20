@@ -1,5 +1,5 @@
 import React, { useState, useEffect,useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
 import Navbar from '../components/Navbar';
@@ -12,7 +12,7 @@ const Billing = ({ user }) => {
   const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-
+const location = useLocation();
 
   const fetchPlans = async () => {
     try {
@@ -64,7 +64,13 @@ const Billing = ({ user }) => {
       </div>
     );
   }
-
+const handleBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1); // Go back in history
+    } else {
+      navigate(fallbackPath); // Go to dashboard/home
+    }
+  };
   return (
     <div className="min-h-screen bg-background" data-testid="billing-page">
       <Navbar user={user} />
@@ -75,6 +81,14 @@ const Billing = ({ user }) => {
             <h1 className="font-heading font-bold text-4xl mb-4" data-testid="billing-title">Choose Your Plan</h1>
             <p className="text-lg text-muted-foreground">Current plan: <span className="font-semibold text-primary capitalize" data-testid="current-plan">{user?.plan}</span></p>
           </div>
+           <Button 
+                variant="outline"
+                onClick={handleBack}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
 
           <div className="grid md:grid-cols-4 gap-6">
             {plans.map((plan, idx) => (

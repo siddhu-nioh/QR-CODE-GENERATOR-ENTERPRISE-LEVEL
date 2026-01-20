@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
-import Navbar from './Navbar';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Separator } from './ui/separator';
-import { Switch } from './ui/switch';
+import Navbar from '../components/Navbar';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../component/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Separator } from '../components/ui/separator';
+import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
 import {
   User, Mail, Key, CreditCard, Bell, Shield,

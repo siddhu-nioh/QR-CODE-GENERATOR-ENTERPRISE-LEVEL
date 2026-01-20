@@ -142,12 +142,12 @@ const AccountPage = ({ user: initialUser }) => {
       // Update password if provided
       if (formData.newPassword && formData.newPassword === formData.confirmPassword) {
         // Note: You'll need to add a password update endpoint in backend
-        // await axios.post(`${API}/auth/change-password`, {
-        //   currentPassword: formData.currentPassword,
-        //   newPassword: formData.newPassword
-        // }, {
-        //   headers: { Authorization: `Bearer ${token}` }
-        // });
+        await axios.post(`${API}/auth/change-password`, {
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
       
       toast.success('Profile updated successfully');

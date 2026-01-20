@@ -24,10 +24,10 @@ const Navbar = ({ user }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const dropdownRefs = useRef({});
-  const hideTimeoutRef = useRef(null);
   const accountDropdownRef = useRef(null);
+  const hideTimeoutRef = useRef(null);
 
-  // Handle logout function
+  // Handle logout function from your original navbar
   const handleLogout = async () => {
     try {
       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
@@ -41,20 +41,6 @@ const Navbar = ({ user }) => {
       toast.error('Logout failed');
     }
   };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
-        setAccountDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // QR code types for dropdown
   const qrCodeTypes = [
@@ -70,7 +56,24 @@ const Navbar = ({ user }) => {
     { icon: Globe, label: 'Bitcoin', desc: 'Cryptocurrency address', route: '/create/crypto', color: 'bg-orange-500/10 text-orange-600' },
   ];
 
-  // Account menu items
+  // Resources navigation items (from your original)
+  const resources = [
+    { icon: BookOpen, label: 'Blog', desc: 'Latest QR code trends', route: '/blog' },
+    { icon: FileQuestion, label: 'Help Center', desc: 'Get help & tutorials', route: '/help' },
+    { icon: BarChart3, label: 'Case Studies', desc: 'Success stories', route: '/case-studies' },
+    { icon: Shield, label: 'Security', desc: 'GDPR & Data protection', route: '/security' },
+    { icon: Gift, label: 'Free Tools', desc: 'Additional utilities', route: '/tools' },
+  ];
+
+  const company = [
+    { icon: Users, label: 'About Us', route: '/about' },
+    { icon: Users, label: 'Our Team', route: '/team' },
+    { icon: BarChart3, label: 'Careers', route: '/careers' },
+    { icon: Shield, label: 'Privacy Policy', route: '/privacy' },
+    { icon: FileText, label: 'Terms of Service', route: '/terms' },
+  ];
+
+  // Account menu items (NEW)
   const accountMenuItems = user ? [
     { icon: UserCircle, label: 'My Account', desc: 'View & edit profile', route: '/account', color: 'text-blue-600' },
     { icon: CreditCardIcon, label: 'Billing & Plans', desc: 'Manage subscription', route: '/billing', color: 'text-purple-600' },
@@ -122,6 +125,20 @@ const Navbar = ({ user }) => {
     }
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
+        setAccountDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -136,13 +153,13 @@ const Navbar = ({ user }) => {
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" data-testid="dashboard-navbar">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           
-          {/* Logo */}
+          {/* Logo - Goes to dashboard when logged in, home when not */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => user ? navigate('/dashboard') : navigate('/')} data-testid="nav-logo">
             <QrCode className="h-8 w-8 text-primary" />
             <span className="font-heading font-bold text-xl">QRPlanet</span>
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation - ALL ORIGINAL DROPDOWNS KEPT */}
           <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
             
             {/* Home */}
@@ -151,7 +168,7 @@ const Navbar = ({ user }) => {
               Home
             </Button>
 
-            {/* Create QR Dropdown */}
+            {/* Create QR Dropdown (Mega Menu) - ORIGINAL */}
             <div 
               className="relative group"
               ref={el => dropdownRefs.current['create'] = el}
@@ -164,7 +181,7 @@ const Navbar = ({ user }) => {
                 <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${activeDropdown === 'create' ? 'rotate-180' : ''}`} />
               </button>
               
-              {/* Mega Dropdown */}
+              {/* Mega Dropdown - ORIGINAL */}
               {activeDropdown === 'create' && (
                 <div 
                   className="absolute left-1/2 transform -translate-x-1/2 top-full mt-1 w-[42rem] bg-popover border rounded-xl shadow-xl p-6 animate-in fade-in-0 zoom-in-95 duration-200"
@@ -208,7 +225,7 @@ const Navbar = ({ user }) => {
               )}
             </div>
 
-            {/* Features Dropdown */}
+            {/* Features Dropdown - ORIGINAL */}
             <div 
               className="relative group"
               ref={el => dropdownRefs.current['features'] = el}
@@ -252,17 +269,86 @@ const Navbar = ({ user }) => {
               )}
             </div>
 
-            {/* My QR Codes (Only when logged in) */}
-            {user && (
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate('/dashboard')}
-                className="gap-2"
-              >
-                <QrCode className="h-4 w-4" />
-                My QR Codes
-              </Button>
-            )}
+            {/* Resources Dropdown - ORIGINAL */}
+            <div 
+              className="relative group"
+              ref={el => dropdownRefs.current['resources'] = el}
+              onMouseEnter={() => handleMouseEnter('resources')}
+              onMouseLeave={() => handleMouseLeave('resources')}
+            >
+              <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
+                <BookOpen className="h-4 w-4" />
+                Resources
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${activeDropdown === 'resources' ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {activeDropdown === 'resources' && (
+                <div 
+                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
+                  {resources.map((resource) => (
+                    <Link
+                      key={resource.label}
+                      to={resource.route}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150"
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <resource.icon className="h-4 w-4" />
+                      <div>
+                        <div className="font-medium">{resource.label}</div>
+                        <div className="text-sm text-muted-foreground">{resource.desc}</div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Company Dropdown - ORIGINAL */}
+            <div 
+              className="relative group"
+              ref={el => dropdownRefs.current['company'] = el}
+              onMouseEnter={() => handleMouseEnter('company')}
+              onMouseLeave={() => handleMouseLeave('company')}
+            >
+              <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
+                <Users className="h-4 w-4" />
+                Company
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${activeDropdown === 'company' ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {activeDropdown === 'company' && (
+                <div 
+                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
+                  onMouseEnter={handleDropdownMouseEnter}
+                  onMouseLeave={handleDropdownMouseLeave}
+                >
+                  {company.map((item) => (
+                    <Link
+                      key={item.label}
+                      to={item.route}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150"
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <div className="font-medium">{item.label}</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Contact Us - ORIGINAL */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/contact')}
+              className="gap-2 hover:scale-105 transition-transform duration-200"
+            >
+              <HelpCircle className="h-4 w-4" />
+              Contact Us
+            </Button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -275,11 +361,22 @@ const Navbar = ({ user }) => {
             <span className={`w-6 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
           </button>
 
-          {/* Right Side Actions */}
+          {/* Right Side Actions - UPDATED WITH ACCOUNT DROPDOWN */}
           <div className="flex items-center gap-4" ref={accountDropdownRef}>
             {user ? (
               <>
-                {/* Account Dropdown */}
+                {/* Desktop user info - ORIGINAL UPGRADE BUTTON KEPT */}
+                <div className="hidden sm:flex items-center gap-4">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Plan: </span>
+                    <span className="font-semibold capitalize text-primary" data-testid="user-plan">{user.plan}</span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/billing')} data-testid="billing-button">
+                    Upgrade
+                  </Button>
+                </div>
+                
+                {/* Account Dropdown (NEW) */}
                 <div className="relative">
                   <button 
                     onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
@@ -295,7 +392,7 @@ const Navbar = ({ user }) => {
                     <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${accountDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
-                  {/* Account Dropdown Menu */}
+                  {/* Account Dropdown Menu (NEW) */}
                   {accountDropdownOpen && (
                     <div className="absolute right-0 top-full mt-1 w-64 bg-popover border rounded-xl shadow-xl p-2 animate-in fade-in-0 zoom-in-95 duration-200 z-50">
                       {/* User Info */}
@@ -354,7 +451,7 @@ const Navbar = ({ user }) => {
               </>
             ) : (
               <>
-                {/* Logged out state */}
+                {/* Logged out state - ORIGINAL */}
                 <Button variant="ghost" onClick={() => navigate('/login')} className="hidden sm:flex">
                   Log In
                 </Button>
@@ -366,7 +463,7 @@ const Navbar = ({ user }) => {
           </div>
         </div>
 
-        {/* Mobile Navigation Menu */}
+        {/* Mobile Navigation Menu - UPDATED WITH ACCOUNT OPTIONS */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t animate-in slide-in-from-top duration-300">
             <div className="container mx-auto px-4 py-4 space-y-2">
@@ -389,7 +486,7 @@ const Navbar = ({ user }) => {
                 <Home className="h-4 w-4 mr-2" /> Home
               </Button>
               
-              {/* QR Creation Section */}
+              {/* QR Creation Section - ORIGINAL */}
               <div className="space-y-1 pl-4">
                 <p className="text-sm font-medium text-muted-foreground px-3 py-2">Create QR</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -410,25 +507,45 @@ const Navbar = ({ user }) => {
                 </Button>
               </div>
 
-              {user && (
-                <>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>
-                    <QrCode className="h-4 w-4 mr-2" /> My QR Codes
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/account'); setMobileMenuOpen(false); }}>
-                    <User className="h-4 w-4 mr-2" /> My Account
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/billing'); setMobileMenuOpen(false); }}>
-                    <CreditCardIcon className="h-4 w-4 mr-2" /> Billing
-                  </Button>
-                </>
-              )}
+              {/* Features - ORIGINAL */}
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/features'); setMobileMenuOpen(false); }}>
+                <BarChart3 className="h-4 w-4 mr-2" /> Features
+              </Button>
               
+              {/* Resources - ORIGINAL */}
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/resources'); setMobileMenuOpen(false); }}>
+                <BookOpen className="h-4 w-4 mr-2" /> Resources
+              </Button>
+              
+              {/* Company - ORIGINAL */}
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/about'); setMobileMenuOpen(false); }}>
+                <Users className="h-4 w-4 mr-2" /> Company
+              </Button>
+              
+              {/* Contact Us - ORIGINAL */}
               <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/contact'); setMobileMenuOpen(false); }}>
                 <HelpCircle className="h-4 w-4 mr-2" /> Contact Us
               </Button>
 
-              {/* For logged out users in mobile */}
+              {/* Account options for logged in users (NEW in mobile) */}
+              {user && (
+                <>
+                  <div className="pt-2 border-t">
+                    <p className="text-sm font-medium text-muted-foreground px-3 py-2">Account</p>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/account'); setMobileMenuOpen(false); }}>
+                      <User className="h-4 w-4 mr-2" /> My Account
+                    </Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>
+                      <QrCode className="h-4 w-4 mr-2" /> My QR Codes
+                    </Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/billing'); setMobileMenuOpen(false); }}>
+                      <CreditCardIcon className="h-4 w-4 mr-2" /> Billing & Plans
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* For logged out users in mobile - ORIGINAL */}
               {!user && (
                 <div className="pt-4 border-t space-y-2">
                   <Button variant="outline" className="w-full" onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}>
@@ -440,7 +557,7 @@ const Navbar = ({ user }) => {
                 </div>
               )}
               
-              {/* For logged in users in mobile */}
+              {/* Logout for logged in users - ORIGINAL */}
               {user && (
                 <div className="pt-4 border-t space-y-2">
                   <Button variant="destructive" className="w-full justify-start" onClick={handleLogout}>

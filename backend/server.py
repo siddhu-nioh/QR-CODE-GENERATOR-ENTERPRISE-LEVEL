@@ -755,200 +755,27 @@ async def emergent_auth_session(request: Request, response: Response):
 
 # ========== DESIGN TEMPLATES ==========
 
-# DESIGN_TEMPLATES = {
-#     "simple": {"name": "Simple", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "square"},
-#     "instagram": {"name": "Instagram", "foreground_color": "#E1306C", "background_color": "#FFFFFF", "pattern_style": "rounded", "gradient_enabled": True, "gradient_color1": "#F58529", "gradient_color2": "#C13584"},
-#     "facebook": {"name": "Facebook", "foreground_color": "#1877F2", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "tiktok": {"name": "TikTok", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "whatsapp": {"name": "WhatsApp", "foreground_color": "#25D366", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "linkedin": {"name": "LinkedIn", "foreground_color": "#0A66C2", "background_color": "#FFFFFF", "pattern_style": "square"},
-#     "youtube": {"name": "YouTube", "foreground_color": "#FF0000", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "spotify": {"name": "Spotify", "foreground_color": "#1DB954", "background_color": "#000000", "pattern_style": "rounded"},
-#     "twitter": {"name": "Twitter/X", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "circle"},
-#     "snapchat": {"name": "Snapchat", "foreground_color": "#FFFC00", "background_color": "#000000", "pattern_style": "rounded"},
-#     "pinterest": {"name": "Pinterest", "foreground_color": "#E60023", "background_color": "#FFFFFF", "pattern_style": "circle"},
-#     "reddit": {"name": "Reddit", "foreground_color": "#FF4500", "background_color": "#FFFFFF", "pattern_style": "circle"},
-#     "wifi": {"name": "WiFi", "foreground_color": "#4285F4", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "vcard": {"name": "vCard", "foreground_color": "#34A853", "background_color": "#FFFFFF", "pattern_style": "square"},
-#     "pdf": {"name": "PDF", "foreground_color": "#F40F02", "background_color": "#FFFFFF", "pattern_style": "square"},
-#     "email": {"name": "Email", "foreground_color": "#EA4335", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "phone": {"name": "Phone", "foreground_color": "#34A853", "background_color": "#FFFFFF", "pattern_style": "circle"},
-#     "sms": {"name": "SMS", "foreground_color": "#FBBC05", "background_color": "#FFFFFF", "pattern_style": "rounded"},
-#     "location": {"name": "Location", "foreground_color": "#EA4335", "background_color": "#FFFFFF", "pattern_style": "circle"},
-#     "bitcoin": {"name": "Bitcoin", "foreground_color": "#F7931A", "background_color": "#FFFFFF", "pattern_style": "square"},
-# }
-
-# Add these base64 encoded logos (I'll provide small sample logos for each platform)
-# You should replace these with your actual logos in production
-
-# Sample base64 logos (these are very small placeholder logos)
-LOGO_BASE64 = {
-    "instagram": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZGSAYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "facebook": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZGSAYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "twitter": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZGSAYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "whatsapp": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZGSAYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "linkedin": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZGSAYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "youtube": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "spotify": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "tiktok": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "snapchat": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "pinterest": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "reddit": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "wifi": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "vcard": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "email": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "phone": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "sms": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "location": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "bitcoin": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-    "pdf": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAgAAAAIABgryLAAAAVklEQVQ4jWNgGAWjYBSMAioA2v8ZGMjTzMgwygBKAgY0x0G5ZAPKgFEvoDRgZGBgYGBkZKSEYtIBE6oiTAZYo76yISKQBdY4GmFgGI0CigEAbYcaG7S7IioAAAAASUVORK5CYII=",
-}
-
-# Update DESIGN_TEMPLATES with logos
 DESIGN_TEMPLATES = {
-    "simple": {
-        "name": "Simple", 
-        "foreground_color": "#000000", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "square",
-        "logo_data": None
-    },
-    "instagram": {
-        "name": "Instagram", 
-        "foreground_color": "#E1306C", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded", 
-        "gradient_enabled": True, 
-        "gradient_color1": "#F58529", 
-        "gradient_color2": "#C13584",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['instagram']}"
-    },
-    "facebook": {
-        "name": "Facebook", 
-        "foreground_color": "#1877F2", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['facebook']}"
-    },
-    "tiktok": {
-        "name": "TikTok", 
-        "foreground_color": "#000000", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['tiktok']}"
-    },
-    "whatsapp": {
-        "name": "WhatsApp", 
-        "foreground_color": "#25D366", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['whatsapp']}"
-    },
-    "linkedin": {
-        "name": "LinkedIn", 
-        "foreground_color": "#0A66C2", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "square",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['linkedin']}"
-    },
-    "youtube": {
-        "name": "YouTube", 
-        "foreground_color": "#FF0000", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['youtube']}"
-    },
-    "spotify": {
-        "name": "Spotify", 
-        "foreground_color": "#1DB954", 
-        "background_color": "#000000", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['spotify']}"
-    },
-    "twitter": {
-        "name": "Twitter/X", 
-        "foreground_color": "#000000", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "circle",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['twitter']}"
-    },
-    "snapchat": {
-        "name": "Snapchat", 
-        "foreground_color": "#FFFC00", 
-        "background_color": "#000000", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['snapchat']}"
-    },
-    "pinterest": {
-        "name": "Pinterest", 
-        "foreground_color": "#E60023", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "circle",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['pinterest']}"
-    },
-    "reddit": {
-        "name": "Reddit", 
-        "foreground_color": "#FF4500", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "circle",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['reddit']}"
-    },
-    "wifi": {
-        "name": "WiFi", 
-        "foreground_color": "#4285F4", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['wifi']}"
-    },
-    "vcard": {
-        "name": "vCard", 
-        "foreground_color": "#34A853", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "square",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['vcard']}"
-    },
-    "pdf": {
-        "name": "PDF", 
-        "foreground_color": "#F40F02", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "square",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['pdf']}"
-    },
-    "email": {
-        "name": "Email", 
-        "foreground_color": "#EA4335", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['email']}"
-    },
-    "phone": {
-        "name": "Phone", 
-        "foreground_color": "#34A853", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "circle",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['phone']}"
-    },
-    "sms": {
-        "name": "SMS", 
-        "foreground_color": "#FBBC05", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "rounded",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['sms']}"
-    },
-    "location": {
-        "name": "Location", 
-        "foreground_color": "#EA4335", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "circle",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['location']}"
-    },
-    "bitcoin": {
-        "name": "Bitcoin", 
-        "foreground_color": "#F7931A", 
-        "background_color": "#FFFFFF", 
-        "pattern_style": "square",
-        "logo_data": f"data:image/png;base64,{LOGO_BASE64['bitcoin']}"
-    },
+    "simple": {"name": "Simple", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "instagram": {"name": "Instagram", "foreground_color": "#E1306C", "background_color": "#FFFFFF", "pattern_style": "rounded", "gradient_enabled": True, "gradient_color1": "#F58529", "gradient_color2": "#C13584"},
+    "facebook": {"name": "Facebook", "foreground_color": "#1877F2", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "tiktok": {"name": "TikTok", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "whatsapp": {"name": "WhatsApp", "foreground_color": "#25D366", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "linkedin": {"name": "LinkedIn", "foreground_color": "#0A66C2", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "youtube": {"name": "YouTube", "foreground_color": "#FF0000", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "spotify": {"name": "Spotify", "foreground_color": "#1DB954", "background_color": "#000000", "pattern_style": "rounded"},
+    "twitter": {"name": "Twitter/X", "foreground_color": "#000000", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "snapchat": {"name": "Snapchat", "foreground_color": "#FFFC00", "background_color": "#000000", "pattern_style": "rounded"},
+    "pinterest": {"name": "Pinterest", "foreground_color": "#E60023", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "reddit": {"name": "Reddit", "foreground_color": "#FF4500", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "wifi": {"name": "WiFi", "foreground_color": "#4285F4", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "vcard": {"name": "vCard", "foreground_color": "#34A853", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "pdf": {"name": "PDF", "foreground_color": "#F40F02", "background_color": "#FFFFFF", "pattern_style": "square"},
+    "email": {"name": "Email", "foreground_color": "#EA4335", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "phone": {"name": "Phone", "foreground_color": "#34A853", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "sms": {"name": "SMS", "foreground_color": "#FBBC05", "background_color": "#FFFFFF", "pattern_style": "rounded"},
+    "location": {"name": "Location", "foreground_color": "#EA4335", "background_color": "#FFFFFF", "pattern_style": "circle"},
+    "bitcoin": {"name": "Bitcoin", "foreground_color": "#F7931A", "background_color": "#FFFFFF", "pattern_style": "square"},
 }
 
 @api_router.get("/design-templates")

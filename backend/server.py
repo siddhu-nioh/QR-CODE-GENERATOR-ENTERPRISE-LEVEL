@@ -23,6 +23,8 @@ import hashlib
 from urllib.parse import quote
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+import base64
+from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -57,6 +59,50 @@ allow_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
 
 # ========== MODELS ==========
 
+# Add to imports
+
+
+# Define available preloaded logos (match frontend)
+PRELOADED_LOGO_NAMES = [
+    "applemusic", "bitcoinsv", "carrd", "facebook", "gmail", 
+    "indeed", "instagram", "pinterest", "readthedocs", "reddit",
+    "spotify", "tiktok", "unitednations", "wechat", "whatsapp",
+    "wikiquote", "x", "youtube"
+]
+
+# Cache for logo data
+LOGO_DATA_CACHE = {}
+
+def get_preloaded_logo(logo_name):
+    """Get base64 encoded logo data"""
+    if logo_name not in PRELOADED_LOGO_NAMES:
+        return None
+    
+    if logo_name in LOGO_DATA_CACHE:
+        return LOGO_DATA_CACHE[logo_name]
+    
+    try:
+        # Assuming logos are in project_root/static/assets/logos/
+        logo_path = Path(__file__).parent / "static" / "assets" / "logos" / f"{logo_name}.png"
+        
+        if logo_path.exists():
+            with open(logo_path, "rb") as f:
+                logo_bytes = f.read()
+            
+            # Convert to base64 data URL
+            logo_b64 = base64.b64encode(logo_bytes).decode('utf-8')
+            logo_data_url = f"data:image/png;base64,{logo_b64}"
+            
+            LOGO_DATA_CACHE[logo_name] = logo_data_url
+            return logo_data_url
+    except Exception as e:
+        logger.error(f"Error loading logo {logo_name}: {e}")
+    
+    return None
+
+# In public_qr_image function:
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -88,12 +134,12 @@ class QRCodeCreate(BaseModel):
     qr_type: str  # url, text, email, phone, sms, whatsapp, wifi, vcard, pdf, location, payment
     content: Dict[str, Any]
     is_dynamic: bool = False
-    design: Optional[Dict[str, Any]] = None  # colors, logo, pattern, frame
+    design: Optional[Dict[str, Any]] = Field(default_factory=dict) # colors, logo, pattern, frame
 
 class QRCodeUpdate(BaseModel):
     name: Optional[str] = None
     content: Optional[Dict[str, Any]] = None
-    design: Optional[Dict[str, Any]] = None
+    design: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class QRCode(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -678,80 +724,7 @@ async def google_login(request: Request, response: Response):
         "session_token": session_token
     }
 
-# ========== EMERGENT GOOGLE AUTH INTEGRATION ==========
 
-@api_router.post("/auth/emergent-session")
-async def emergent_auth_session(request: Request, response: Response):
-    """Exchange Emergent session_id for user session"""
-    body = await request.json()
-    session_id = body.get("session_id")
-    
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
-    
-    # Call Emergent Auth API
-    import httpx
-    async with httpx.AsyncClient() as client:
-        auth_response = await client.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
-        )
-        
-        if auth_response.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session_id")
-        
-        auth_data = auth_response.json()
-    
-    # Check if user exists
-    user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
-    
-    if not user:
-        # Create new user
-        user_id = f"user_{uuid.uuid4().hex[:12]}"
-        user_doc = {
-            "user_id": user_id,
-            "email": auth_data["email"],
-            "name": auth_data["name"],
-            "picture": auth_data.get("picture"),
-            "plan": "free",
-            "qr_code_count": 0,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.users.insert_one(user_doc)
-        user = user_doc
-    
-    # Create session
-    session_token = auth_data["session_token"]
-    session_doc = {
-        "user_id": user["user_id"],
-        "session_token": session_token,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.user_sessions.insert_one(session_doc)
-    
-    # Set cookie
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=7 * 24 * 60 * 60
-    )
-    
-    return {
-        "user": {
-            "user_id": user["user_id"],
-            "email": user["email"],
-            "name": user["name"],
-            "picture": user.get("picture"),
-            "plan": user.get("plan", "free"),
-            "qr_code_count": user.get("qr_code_count", 0)
-        },
-        "session_token": session_token
-    }
 
 # ========== DESIGN TEMPLATES ==========
 
@@ -782,6 +755,38 @@ DESIGN_TEMPLATES = {
 async def get_design_templates():
     """Get all available design templates"""
     return {"templates": DESIGN_TEMPLATES}
+
+@api_router.post("/upload-logo")
+async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
+    """Upload logo for QR code"""
+    try:
+        form = await request.form()
+        logo_file = form.get("logo")
+        
+        if not logo_file:
+            raise HTTPException(status_code=400, detail="No logo file provided")
+        
+        # Read file content
+        logo_content = await logo_file.read()
+        
+        # Validate image
+        try:
+            img = Image.open(io.BytesIO(logo_content))
+            img.verify()
+        except:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+        
+        # Convert to base64
+        import base64
+        logo_base64 = base64.b64encode(logo_content).decode('utf-8')
+        logo_data_url = f"data:image/png;base64,{logo_base64}"
+        
+        return {"logo_data": logo_data_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading logo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/upload-logo")
 async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
@@ -1000,8 +1005,74 @@ async def make_qr_dynamic(qr_id: str, user: dict = Depends(get_current_user)):
         "redirect_token": redirect_token
     }
 
+# @api_router.get("/public/qr/{qr_id}/image")
+# async def public_qr_image(qr_id: str, sig: str):
+#     qr = await db.qr_codes.find_one({"qr_id": qr_id}, {"_id": 0})
+#     if not qr:
+#         raise HTTPException(status_code=404, detail="QR code not found")
+
+#     expected_sig = sign_qr_image(
+#         qr_id,
+#         qr["user_id"],
+#         qr["updated_at"]
+#     )
+
+#     if sig != expected_sig:
+#         raise HTTPException(status_code=401, detail="Invalid signature")
+
+#     # Generate content
+#     if qr["is_dynamic"]:
+#         # For dynamic, encode redirect URL
+#         redirect_url = f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
+#         qr_content = redirect_url
+#     else:
+#         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
+
+#     # Generate image with advanced customization
+#     img_bytes = create_qr_image(qr_content, qr.get("design"))
+
+#     # Watermark for free plan
+#     user_doc = await db.users.find_one({"user_id": qr["user_id"]}, {"_id": 0})
+#     if user_doc and user_doc.get("plan") == "free":
+#         img = Image.open(io.BytesIO(img_bytes))
+#         draw = ImageDraw.Draw(img)
+#         w, h = img.size
+#         draw.text((w // 2 - 30, h - 20), "QRPlanet", fill="gray")
+
+#         buf = io.BytesIO()
+#         img.save(buf, format="PNG")
+#         buf.seek(0)
+#         img_bytes = buf.getvalue()
+
+#     return StreamingResponse(
+#         io.BytesIO(img_bytes),
+#         media_type="image/png",
+#         headers={"Cache-Control": "public, max-age=3600"}
+#     )
+
 @api_router.get("/public/qr/{qr_id}/image")
-async def public_qr_image(qr_id: str, sig: str):
+async def public_qr_image(
+    qr_id: str, 
+    sig: str,
+    # Add design parameters
+    fg: Optional[str] = None,
+    bg: Optional[str] = None,
+    style: Optional[str] = None,
+    ec: Optional[str] = None,
+    gradient: Optional[str] = None,
+    g1: Optional[str] = None,
+    g2: Optional[str] = None,
+    gtype: Optional[str] = None,
+    gdir: Optional[str] = None,
+    frame: Optional[str] = None,
+    fc: Optional[str] = None,
+    ftext: Optional[str] = None,
+    logo: Optional[str] = None,
+    logo_type: Optional[str] = None,
+    logo_name: Optional[str] = None,
+    logo_data: Optional[str] = None,
+    template_key: Optional[str] = None
+):
     qr = await db.qr_codes.find_one({"qr_id": qr_id}, {"_id": 0})
     if not qr:
         raise HTTPException(status_code=404, detail="QR code not found")
@@ -1017,14 +1088,71 @@ async def public_qr_image(qr_id: str, sig: str):
 
     # Generate content
     if qr["is_dynamic"]:
-        # For dynamic, encode redirect URL
         redirect_url = f"{os.getenv('API_BASE_URL')}/api/r/{qr['redirect_token']}"
         qr_content = redirect_url
     else:
         qr_content = generate_qr_content(qr["qr_type"], qr["content"])
 
-    # Generate image with advanced customization
-    img_bytes = create_qr_image(qr_content, qr.get("design"))
+    # Merge design parameters (query params override stored design)
+    design = qr.get("design") or {}
+
+    logo_type = request.query_params.get("logo_type")
+    logo_name = request.query_params.get("logo_name")
+    
+    if logo_type == "preloaded" and logo_name:
+        logo_data_url = await get_preloaded_logo(logo_name)
+        if logo_data_url:
+            design["logo_data"] = logo_data_url
+    
+    
+    # Apply query parameters if provided
+    if fg:
+        design["foreground_color"] = f"#{fg}"
+    if bg:
+        design["background_color"] = f"#{bg}"
+    if style:
+        design["pattern_style"] = style
+    if ec:
+        design["error_correction"] = ec
+    
+    # Gradient parameters
+    if gradient:
+        design["gradient_enabled"] = True
+    if g1:
+        design["gradient_color1"] = f"#{g1}"
+    if g2:
+        design["gradient_color2"] = f"#{g2}"
+    if gtype:
+        design["gradient_type"] = gtype
+    if gdir:
+        design["gradient_direction"] = gdir
+    
+    # Frame parameters
+    if frame:
+        design["frame_style"] = frame
+    if fc:
+        design["frame_color"] = f"#{fc}"
+    if ftext:
+        design["frame_text"] = ftext
+    
+    # Logo handling
+    if logo:
+        design["logo_type"] = logo_type
+        if logo_type == "preloaded" and logo_name:
+            design["template_logo"] = logo_name
+            # Find logo in PRELOADED_LOGOS (you'll need to define this on backend)
+            design["logo_data"] = None
+        elif logo_type == "custom" and logo_data:
+            try:
+                design["logo_data"] = logo_data
+            except:
+                design["logo_data"] = None
+    
+    if template_key:
+        design["template_key"] = template_key
+
+    # Generate image with customization
+    img_bytes = create_qr_image(qr_content, design)
 
     # Watermark for free plan
     user_doc = await db.users.find_one({"user_id": qr["user_id"]}, {"_id": 0})

@@ -248,65 +248,164 @@ const QRDesigner = ({ user }) => {
     });
   };
 
-  const updatePreview = useCallback(async () => {
-    if (!shouldUpdatePreview.current || !qrData?.signature) {
-      return;
+  // const updatePreview = useCallback(async () => {
+  //   if (!shouldUpdatePreview.current || !qrData?.signature) {
+  //     return;
+  //   }
+
+  //   try {
+  //     const sig = qrData.signature;
+  //     const params = new URLSearchParams({
+  //       sig: sig,
+  //       t: Date.now(),
+  //       fg: design.foreground_color.replace('#', ''),
+  //       bg: design.background_color.replace('#', ''),
+  //       style: design.pattern_style,
+  //       ec: design.error_correction
+  //     });
+
+  //     // Add gradient parameters if enabled
+  //     if (design.gradient_enabled) {
+  //       params.append('gradient', 'true');
+  //       params.append('g1', design.gradient_color1.replace('#', ''));
+  //       params.append('g2', design.gradient_color2.replace('#', ''));
+  //       params.append('gtype', design.gradient_type);
+  //       params.append('gdir', design.gradient_direction);
+  //     }
+
+  //     // Add frame parameters
+  //     if (design.frame_style !== 'none') {
+  //       params.append('frame', design.frame_style);
+  //       params.append('fc', design.frame_color.replace('#', ''));
+  //       if (design.frame_text) {
+  //         params.append('ftext', encodeURIComponent(design.frame_text));
+  //       }
+  //     }
+
+  //     // Add logo parameters
+  //     if (design.logo_type !== 'none') {
+  //       params.append('logo', 'true');
+  //       if (design.logo_type === 'preloaded' && design.template_logo) {
+  //         params.append('logo_type', 'preloaded');
+  //         params.append('logo_name', design.template_logo);
+  //       } else if (design.logo_type === 'custom' && design.logo_data) {
+  //         params.append('logo_type', 'custom');
+  //         params.append('logo_data', encodeURIComponent(design.logo_data));
+  //       }
+  //     }
+
+  //     // Add template key if exists
+  //     if (design.template_key) {
+  //       params.append('template_key', design.template_key);
+  //     }
+
+  //     const previewUrl = `${API}/public/qr/${qrId}/image?${params.toString()}`;
+  //     setPreviewUrl(previewUrl);
+      
+  //   } catch (error) {
+  //     console.error('Error updating preview:', error);
+  //     setPreviewUrl(null);
+  //   }
+  // }, [qrId, qrData, design]);
+const updatePreview = useCallback(async () => {
+  if (!shouldUpdatePreview.current || !qrData?.signature) {
+    return;
+  }
+
+  try {
+    const sig = qrData.signature;
+    const params = new URLSearchParams({
+      sig: sig,
+      t: Date.now()
+    });
+
+    // Add basic design parameters
+    if (design.foreground_color) {
+      params.append('fg', design.foreground_color.replace('#', ''));
+    }
+    if (design.background_color) {
+      params.append('bg', design.background_color.replace('#', ''));
+    }
+    if (design.pattern_style) {
+      params.append('style', design.pattern_style);
+    }
+    if (design.error_correction) {
+      params.append('ec', design.error_correction);
     }
 
-    try {
-      const sig = qrData.signature;
-      const params = new URLSearchParams({
-        sig: sig,
-        t: Date.now(),
-        fg: design.foreground_color.replace('#', ''),
-        bg: design.background_color.replace('#', ''),
-        style: design.pattern_style,
-        ec: design.error_correction
-      });
-
-      // Add gradient parameters if enabled
-      if (design.gradient_enabled) {
-        params.append('gradient', 'true');
+    // Add gradient parameters
+    if (design.gradient_enabled) {
+      params.append('gradient', 'true');
+      if (design.gradient_color1) {
         params.append('g1', design.gradient_color1.replace('#', ''));
+      }
+      if (design.gradient_color2) {
         params.append('g2', design.gradient_color2.replace('#', ''));
+      }
+      if (design.gradient_type) {
         params.append('gtype', design.gradient_type);
+      }
+      if (design.gradient_direction) {
         params.append('gdir', design.gradient_direction);
       }
-
-      // Add frame parameters
-      if (design.frame_style !== 'none') {
-        params.append('frame', design.frame_style);
-        params.append('fc', design.frame_color.replace('#', ''));
-        if (design.frame_text) {
-          params.append('ftext', encodeURIComponent(design.frame_text));
-        }
-      }
-
-      // Add logo parameters
-      if (design.logo_type !== 'none') {
-        params.append('logo', 'true');
-        if (design.logo_type === 'preloaded' && design.template_logo) {
-          params.append('logo_type', 'preloaded');
-          params.append('logo_name', design.template_logo);
-        } else if (design.logo_type === 'custom' && design.logo_data) {
-          params.append('logo_type', 'custom');
-          params.append('logo_data', encodeURIComponent(design.logo_data));
-        }
-      }
-
-      // Add template key if exists
-      if (design.template_key) {
-        params.append('template_key', design.template_key);
-      }
-
-      const previewUrl = `${API}/public/qr/${qrId}/image?${params.toString()}`;
-      setPreviewUrl(previewUrl);
-      
-    } catch (error) {
-      console.error('Error updating preview:', error);
-      setPreviewUrl(null);
     }
-  }, [qrId, qrData, design]);
+
+    // Add frame parameters
+    if (design.frame_style && design.frame_style !== 'none') {
+      params.append('frame', design.frame_style);
+      if (design.frame_color) {
+        params.append('fc', design.frame_color.replace('#', ''));
+      }
+      if (design.frame_text) {
+        params.append('ftext', encodeURIComponent(design.frame_text));
+      }
+    }
+
+    // Add logo parameters
+    if (design.logo_type !== 'none') {
+      params.append('logo', 'true');
+      params.append('logo_type', design.logo_type);
+      
+      if (design.logo_type === 'preloaded' && design.template_logo) {
+        params.append('logo_name', design.template_logo);
+      } else if (design.logo_type === 'custom' && design.logo_data) {
+        // Send only part after comma for base64
+        const base64Data = design.logo_data.split(',')[1] || design.logo_data;
+        params.append('logo_data', encodeURIComponent(base64Data));
+      }
+    }
+
+    // Add template key if exists
+    if (design.template_key) {
+      params.append('template_key', design.template_key);
+    }
+
+    const previewUrl = `${API}/public/qr/${qrId}/image?${params.toString()}`;
+    setPreviewUrl(previewUrl);
+    
+  } catch (error) {
+    console.error('Error updating preview:', error);
+    // Fallback to static image
+    const fallbackUrl = `${API}/public/qr/${qrId}/image?sig=${qrData.signature}`;
+    setPreviewUrl(fallbackUrl);
+  }
+}, [qrId, qrData, design]);
+
+useEffect(() => {
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/design-templates`);
+      if (response.data?.templates) {
+        setTemplates(response.data.templates);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch templates, using defaults:', error);
+      setTemplates(getDefaultTemplates());
+    }
+  };
+  
+  fetchTemplates();
+}, []);
 
   const fetchQRCode = useCallback(async () => {
     try {
@@ -529,60 +628,115 @@ const QRDesigner = ({ user }) => {
     toast.success('Logo removed');
   };
 
-  const handleSave = async () => {
-    try {
-      setIsSaving(true);
-      const token = localStorage.getItem('session_token');
+  // const handleSave = async () => {
+  //   try {
+  //     setIsSaving(true);
+  //     const token = localStorage.getItem('session_token');
       
-      // Prepare design for saving
-      const designToSave = { ...design };
+  //     // Prepare design for saving
+  //     const designToSave = { ...design };
       
-      // Remove preview-only properties
-      delete designToSave.custom_logo_url;
+  //     // Remove preview-only properties
+  //     delete designToSave.custom_logo_url;
       
-      // If logo_type is custom and logo_data is base64, ensure it's properly formatted
-      if (designToSave.logo_type === 'custom' && designToSave.logo_data) {
-        // Ensure logo_data is a string
-        if (typeof designToSave.logo_data !== 'string') {
-          designToSave.logo_data = String(designToSave.logo_data);
-        }
+  //     // If logo_type is custom and logo_data is base64, ensure it's properly formatted
+  //     if (designToSave.logo_type === 'custom' && designToSave.logo_data) {
+  //       // Ensure logo_data is a string
+  //       if (typeof designToSave.logo_data !== 'string') {
+  //         designToSave.logo_data = String(designToSave.logo_data);
+  //       }
+  //     }
+      
+  //     // If logo_type is none, clear logo-related fields
+  //     if (designToSave.logo_type === 'none') {
+  //       designToSave.logo_data = null;
+  //       designToSave.template_logo = null;
+  //       designToSave.icon_logo = null;
+  //     }
+      
+  //     await axios.put(
+  //       `${API}/qr-codes/${qrId}`,
+  //       { design: designToSave },
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+      
+  //     toast.success('QR code design updated successfully!');
+      
+  //     // Update QR data to get new signature if needed
+  //     const updatedResponse = await axios.get(`${API}/qr-codes/${qrId}`, {
+  //       headers: { Authorization: `Bearer ${token}` }
+  //     });
+      
+  //     setQrData(updatedResponse.data);
+      
+  //     // Navigate back to dashboard after a brief delay
+  //     setTimeout(() => {
+  //       navigate('/dashboard');
+  //     }, 1500);
+      
+  //   } catch (error) {
+  //     console.error('Error updating QR code:', error);
+  //     toast.error('Failed to update design. Please try again.');
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
+const handleSave = async () => {
+  try {
+    setIsSaving(true);
+    const token = localStorage.getItem('session_token');
+    
+    // Prepare design for saving - clone and clean
+    const designToSave = { ...design };
+    
+    // Remove frontend-only properties
+    delete designToSave.custom_logo_url;
+    
+    // Clean up logo data
+    if (designToSave.logo_type === 'custom' && designToSave.logo_data) {
+      // Ensure it's properly formatted base64
+      if (!designToSave.logo_data.startsWith('data:')) {
+        designToSave.logo_data = `data:image/png;base64,${designToSave.logo_data}`;
       }
-      
-      // If logo_type is none, clear logo-related fields
-      if (designToSave.logo_type === 'none') {
-        designToSave.logo_data = null;
-        designToSave.template_logo = null;
-        designToSave.icon_logo = null;
-      }
-      
-      await axios.put(
-        `${API}/qr-codes/${qrId}`,
-        { design: designToSave },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      toast.success('QR code design updated successfully!');
-      
-      // Update QR data to get new signature if needed
-      const updatedResponse = await axios.get(`${API}/qr-codes/${qrId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setQrData(updatedResponse.data);
-      
-      // Navigate back to dashboard after a brief delay
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
-      
-    } catch (error) {
-      console.error('Error updating QR code:', error);
-      toast.error('Failed to update design. Please try again.');
-    } finally {
-      setIsSaving(false);
+    } else if (designToSave.logo_type === 'none') {
+      // Clear logo fields if no logo
+      designToSave.logo_data = null;
+      designToSave.template_logo = null;
     }
-  };
-
+    
+    // Remove any undefined values
+    Object.keys(designToSave).forEach(key => {
+      if (designToSave[key] === undefined || designToSave[key] === null) {
+        delete designToSave[key];
+      }
+    });
+    
+    await axios.put(
+      `${API}/qr-codes/${qrId}`,
+      { design: designToSave },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    toast.success('QR code design updated successfully!');
+    
+    // Refresh QR data to get new signature
+    const updatedResponse = await axios.get(`${API}/qr-codes/${qrId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    setQrData(updatedResponse.data);
+    
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 1500);
+    
+  } catch (error) {
+    console.error('Error updating QR code:', error);
+    toast.error(error.response?.data?.detail || 'Failed to update design. Please try again.');
+  } finally {
+    setIsSaving(false);
+  }
+};
   useEffect(() => {
     return () => {
       // Clean up timeouts

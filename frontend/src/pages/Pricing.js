@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { Check, QrCode } from 'lucide-react';
+import { ArrowLeft, Check, QrCode } from 'lucide-react';
 
 const Pricing = () => {
   const navigate = useNavigate();

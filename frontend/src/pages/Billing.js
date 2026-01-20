@@ -5,7 +5,7 @@ import { API } from '../App';
 import Navbar from '../components/Navbar';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { Check, Crown } from 'lucide-react';
+import { ArrowLeft, Check, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Billing = ({ user }) => {

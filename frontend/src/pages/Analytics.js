@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
 import Navbar from '../components/Navbar';
@@ -11,7 +11,8 @@ import {
 } from 'recharts';
 import { 
   Activity, Smartphone, Monitor, Globe, MapPin, Clock,
-  TrendingUp, Users, Eye, Download, RefreshCw
+  TrendingUp, Users, Eye, Download, RefreshCw,
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '../components/ui/input';
@@ -68,6 +69,14 @@ const Analytics = ({ user }) => {
   const [editContent, setEditContent] = useState({});
   const [saving, setSaving] = useState(false);
 
+  const location = useLocation();
+  const handleBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1); // Go back in history
+    } else {
+      navigate(fallbackPath); // Go to dashboard/home
+    }
+  };
   useEffect(() => {
   if (qrData) {
     setEditName(qrData.name || "");
@@ -221,6 +230,14 @@ const Analytics = ({ user }) => {
               </p>
             </div>
             <div className="flex gap-3">
+               <Button 
+      variant="outline"
+      onClick={handleBack}
+      className="flex items-center gap-2"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back
+    </Button>
               <Button
                 variant="outline"
                 onClick={handleRefresh}

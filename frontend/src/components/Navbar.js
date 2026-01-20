@@ -9,7 +9,12 @@ import {
   Music, Video, CreditCard, MapPin, FileText,
   Globe, Users, HelpCircle, Home, BarChart3,
   Image as ImageIcon, Settings, FileQuestion,
-  BookOpen, Gift, Shield
+  BookOpen, Gift, Shield, Mail, Key, Bell,
+  CreditCard as CreditCardIcon, UserCircle,
+  Lock, Info, Award, Calendar, Globe as GlobeIcon,
+  Sparkles as SparklesIcon, Download, Eye,
+  Edit, Trash2, Star, CheckCircle, XCircle,
+  AlertCircle, LogOut as LogOutIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -17,10 +22,12 @@ const Navbar = ({ user }) => {
   const navigate = useNavigate();
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const dropdownRefs = useRef({});
   const hideTimeoutRef = useRef(null);
+  const accountDropdownRef = useRef(null);
 
-  // Handle logout function from your original navbar
+  // Handle logout function
   const handleLogout = async () => {
     try {
       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
@@ -28,11 +35,26 @@ const Navbar = ({ user }) => {
       toast.success('Logged out successfully');
       navigate('/login');
       setMobileMenuOpen(false);
+      setAccountDropdownOpen(false);
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Logout failed');
     }
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
+        setAccountDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // QR code types for dropdown
   const qrCodeTypes = [
@@ -48,22 +70,17 @@ const Navbar = ({ user }) => {
     { icon: Globe, label: 'Bitcoin', desc: 'Cryptocurrency address', route: '/create/crypto', color: 'bg-orange-500/10 text-orange-600' },
   ];
 
-  // Other navigation items
-  const resources = [
-    { icon: BookOpen, label: 'Blog', desc: 'Latest QR code trends', route: '/blog' },
-    { icon: FileQuestion, label: 'Help Center', desc: 'Get help & tutorials', route: '/help' },
-    { icon: BarChart3, label: 'Case Studies', desc: 'Success stories', route: '/case-studies' },
-    { icon: Shield, label: 'Security', desc: 'GDPR & Data protection', route: '/security' },
-    { icon: Gift, label: 'Free Tools', desc: 'Additional utilities', route: '/tools' },
-  ];
-
-  const company = [
-    { icon: Users, label: 'About Us', route: '/about' },
-    { icon: Users, label: 'Our Team', route: '/team' },
-    { icon: BarChart3, label: 'Careers', route: '/careers' },
-    { icon: Shield, label: 'Privacy Policy', route: '/privacy' },
-    { icon: FileText, label: 'Terms of Service', route: '/terms' },
-  ];
+  // Account menu items
+  const accountMenuItems = user ? [
+    { icon: UserCircle, label: 'My Account', desc: 'View & edit profile', route: '/account', color: 'text-blue-600' },
+    { icon: CreditCardIcon, label: 'Billing & Plans', desc: 'Manage subscription', route: '/billing', color: 'text-purple-600' },
+    { icon: Key, label: 'Security', desc: 'Password & 2FA', route: '/security', color: 'text-green-600' },
+    { icon: Bell, label: 'Notifications', desc: 'Email preferences', route: '/notifications', color: 'text-amber-600' },
+    { icon: BarChart3, label: 'Analytics', desc: 'View QR statistics', route: '/dashboard', color: 'text-indigo-600' },
+    { icon: QrCode, label: 'My QR Codes', desc: 'Manage all QR codes', route: '/dashboard', color: 'text-primary' },
+    { type: 'divider' },
+    { icon: LogOutIcon, label: 'Log Out', desc: 'Sign out of account', action: handleLogout, color: 'text-red-600' },
+  ] : [];
 
   // Improved hover handlers with delay
   const handleMouseEnter = (dropdownName) => {
@@ -79,7 +96,7 @@ const Navbar = ({ user }) => {
       if (activeDropdown === dropdownName) {
         setActiveDropdown(null);
       }
-    }, 200); // 200ms delay before hiding
+    }, 200);
   };
 
   const handleDropdownMouseEnter = () => {
@@ -95,6 +112,16 @@ const Navbar = ({ user }) => {
     }, 200);
   };
 
+  const handleQRNavigation = (route) => {
+    if (user) {
+      navigate('/generator');
+      setActiveDropdown(null);
+    } else {
+      navigate('/login');
+      setActiveDropdown(null);
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -103,24 +130,13 @@ const Navbar = ({ user }) => {
       }
     };
   }, []);
-  const handleQRNavigation = (route) => {
-  if (user) {
-    // User is logged in, go to generator
-    navigate('/generator');
-    setActiveDropdown(null);
-  } else {
-    // User is not logged in, go to login page
-    navigate('/login');
-    setActiveDropdown(null);
-  }
-};
 
   return (
     <>
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" data-testid="dashboard-navbar">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           
-          {/* Logo - Goes to dashboard when logged in, home when not */}
+          {/* Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => user ? navigate('/dashboard') : navigate('/')} data-testid="nav-logo">
             <QrCode className="h-8 w-8 text-primary" />
             <span className="font-heading font-bold text-xl">QRPlanet</span>
@@ -135,7 +151,7 @@ const Navbar = ({ user }) => {
               Home
             </Button>
 
-            {/* Create QR Dropdown (Mega Menu) */}
+            {/* Create QR Dropdown */}
             <div 
               className="relative group"
               ref={el => dropdownRefs.current['create'] = el}
@@ -155,30 +171,30 @@ const Navbar = ({ user }) => {
                   onMouseEnter={handleDropdownMouseEnter}
                   onMouseLeave={handleDropdownMouseLeave}
                 >
-                 <div className="grid grid-cols-2 gap-4">
-  <div className="col-span-2 mb-4">
-    <h3 className="font-semibold text-lg flex items-center gap-2">
-      <Sparkles className="h-5 w-5 text-primary" />
-      Choose QR Code Type
-    </h3>
-    <p className="text-sm text-muted-foreground mt-1">Select what your QR Code will do</p>
-  </div>
-  {qrCodeTypes.map((type) => (
-    <button
-      key={type.label}
-      onClick={() => handleQRNavigation(type.route)}
-      className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent group/card transition-all duration-150 hover:scale-[1.02] text-left w-full"
-    >
-      <div className={`p-2 rounded-md ${type.color} group-hover/card:scale-110 transition-transform duration-150`}>
-        <type.icon className="h-5 w-5" />
-      </div>
-      <div>
-        <div className="font-medium">{type.label}</div>
-        <div className="text-sm text-muted-foreground">{type.desc}</div>
-      </div>
-    </button>
-  ))}
-</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 mb-4">
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        Choose QR Code Type
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">Select what your QR Code will do</p>
+                    </div>
+                    {qrCodeTypes.map((type) => (
+                      <button
+                        key={type.label}
+                        onClick={() => handleQRNavigation(type.route)}
+                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent group/card transition-all duration-150 hover:scale-[1.02] text-left w-full"
+                      >
+                        <div className={`p-2 rounded-md ${type.color} group-hover/card:scale-110 transition-transform duration-150`}>
+                          <type.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{type.label}</div>
+                          <div className="text-sm text-muted-foreground">{type.desc}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                   <div className="mt-6 pt-6 border-t">
                     <div className="flex items-center justify-between">
                       <div>
@@ -236,86 +252,17 @@ const Navbar = ({ user }) => {
               )}
             </div>
 
-            {/* Resources Dropdown */}
-            <div 
-              className="relative group"
-              ref={el => dropdownRefs.current['resources'] = el}
-              onMouseEnter={() => handleMouseEnter('resources')}
-              onMouseLeave={() => handleMouseLeave('resources')}
-            >
-              <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
-                <BookOpen className="h-4 w-4" />
-                Resources
-                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${activeDropdown === 'resources' ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {activeDropdown === 'resources' && (
-                <div 
-                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
-                  onMouseEnter={handleDropdownMouseEnter}
-                  onMouseLeave={handleDropdownMouseLeave}
-                >
-                  {resources.map((resource) => (
-                    <Link
-                      key={resource.label}
-                      to={resource.route}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150"
-                      onClick={() => setActiveDropdown(null)}
-                    >
-                      <resource.icon className="h-4 w-4" />
-                      <div>
-                        <div className="font-medium">{resource.label}</div>
-                        <div className="text-sm text-muted-foreground">{resource.desc}</div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Company Dropdown */}
-            <div 
-              className="relative group"
-              ref={el => dropdownRefs.current['company'] = el}
-              onMouseEnter={() => handleMouseEnter('company')}
-              onMouseLeave={() => handleMouseLeave('company')}
-            >
-              <button className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all">
-                <Users className="h-4 w-4" />
-                Company
-                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${activeDropdown === 'company' ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {activeDropdown === 'company' && (
-                <div 
-                  className="absolute top-full mt-1 left-0 w-64 bg-popover border rounded-xl shadow-xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
-                  onMouseEnter={handleDropdownMouseEnter}
-                  onMouseLeave={handleDropdownMouseLeave}
-                >
-                  {company.map((item) => (
-                    <Link
-                      key={item.label}
-                      to={item.route}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-all duration-150"
-                      onClick={() => setActiveDropdown(null)}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <div className="font-medium">{item.label}</div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Contact Us */}
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/contact')}
-              className="gap-2 hover:scale-105 transition-transform duration-200"
-            >
-              <HelpCircle className="h-4 w-4" />
-              Contact Us
-            </Button>
+            {/* My QR Codes (Only when logged in) */}
+            {user && (
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/dashboard')}
+                className="gap-2"
+              >
+                <QrCode className="h-4 w-4" />
+                My QR Codes
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -328,37 +275,86 @@ const Navbar = ({ user }) => {
             <span className={`w-6 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
           </button>
 
-          {/* Right Side Actions - Your original user handling logic */}
-          <div className="flex items-center gap-4">
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-4" ref={accountDropdownRef}>
             {user ? (
               <>
-                {/* Desktop user info - from your original navbar */}
-                <div className="hidden sm:flex items-center gap-4">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Plan: </span>
-                    <span className="font-semibold capitalize text-primary" data-testid="user-plan">{user.plan}</span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => navigate('/billing')} data-testid="billing-button">
-                    Upgrade
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="logout-button">
-                    <LogOut className="h-5 w-5" />
-                  </Button>
-                </div>
-                
-                {/* Mobile user actions */}
-                <div className="md:hidden flex items-center gap-2">
-                  <div className="text-sm">
-                    <span className="font-semibold capitalize text-primary">{user.plan}</span>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={handleLogout}>
-                    <LogOut className="h-5 w-5" />
-                  </Button>
+                {/* Account Dropdown */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent transition-all duration-200"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="hidden md:block text-left">
+                      <div className="text-sm font-medium">{user.name || user.email.split('@')[0]}</div>
+                      <div className="text-xs text-muted-foreground capitalize">{user.plan} Plan</div>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${accountDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {/* Account Dropdown Menu */}
+                  {accountDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-64 bg-popover border rounded-xl shadow-xl p-2 animate-in fade-in-0 zoom-in-95 duration-200 z-50">
+                      {/* User Info */}
+                      <div className="p-3 border-b">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{user.name || 'User'}</div>
+                            <div className="text-sm text-muted-foreground truncate">{user.email}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs flex items-center justify-between">
+                          <span className="px-2 py-1 bg-primary/10 text-primary rounded-full capitalize">
+                            {user.plan} Plan
+                          </span>
+                          <span className="text-muted-foreground">
+                            {user.qr_code_count || 0} QR Codes
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Menu Items */}
+                      <div className="py-1">
+                        {accountMenuItems.map((item, index) => (
+                          item.type === 'divider' ? (
+                            <div key={`divider-${index}`} className="h-px bg-border my-1"></div>
+                          ) : (
+                            <button
+                              key={item.label}
+                              onClick={() => {
+                                if (item.action) {
+                                  item.action();
+                                } else if (item.route) {
+                                  navigate(item.route);
+                                }
+                                setAccountDropdownOpen(false);
+                              }}
+                              className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-accent transition-all duration-150 text-left"
+                            >
+                              <div className={`p-1.5 rounded-md ${item.color} bg-opacity-10`}>
+                                <item.icon className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium">{item.label}</div>
+                                <div className="text-xs text-muted-foreground">{item.desc}</div>
+                              </div>
+                            </button>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
               <>
-                {/* Logged out state - Show login/signup */}
+                {/* Logged out state */}
                 <Button variant="ghost" onClick={() => navigate('/login')} className="hidden sm:flex">
                   Log In
                 </Button>
@@ -374,6 +370,21 @@ const Navbar = ({ user }) => {
         {mobileMenuOpen && (
           <div className="md:hidden border-t animate-in slide-in-from-top duration-300">
             <div className="container mx-auto px-4 py-4 space-y-2">
+              {user && (
+                <div className="p-3 border rounded-lg mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">{user.name || 'User'}</div>
+                      <div className="text-sm text-muted-foreground">{user.email}</div>
+                      <div className="text-xs text-primary capitalize mt-1">{user.plan} Plan</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/'); setMobileMenuOpen(false); }}>
                 <Home className="h-4 w-4 mr-2" /> Home
               </Button>
@@ -399,17 +410,19 @@ const Navbar = ({ user }) => {
                 </Button>
               </div>
 
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/features'); setMobileMenuOpen(false); }}>
-                <BarChart3 className="h-4 w-4 mr-2" /> Features
-              </Button>
-              
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/resources'); setMobileMenuOpen(false); }}>
-                <BookOpen className="h-4 w-4 mr-2" /> Resources
-              </Button>
-              
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/about'); setMobileMenuOpen(false); }}>
-                <Users className="h-4 w-4 mr-2" /> Company
-              </Button>
+              {user && (
+                <>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>
+                    <QrCode className="h-4 w-4 mr-2" /> My QR Codes
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/account'); setMobileMenuOpen(false); }}>
+                    <User className="h-4 w-4 mr-2" /> My Account
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/billing'); setMobileMenuOpen(false); }}>
+                    <CreditCardIcon className="h-4 w-4 mr-2" /> Billing
+                  </Button>
+                </>
+              )}
               
               <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/contact'); setMobileMenuOpen(false); }}>
                 <HelpCircle className="h-4 w-4 mr-2" /> Contact Us
@@ -430,12 +443,6 @@ const Navbar = ({ user }) => {
               {/* For logged in users in mobile */}
               {user && (
                 <div className="pt-4 border-t space-y-2">
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>
-                    Dashboard
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate('/billing'); setMobileMenuOpen(false); }}>
-                    Upgrade Plan
-                  </Button>
                   <Button variant="destructive" className="w-full justify-start" onClick={handleLogout}>
                     <LogOut className="h-4 w-4 mr-2" /> Log Out
                   </Button>
@@ -444,15 +451,15 @@ const Navbar = ({ user }) => {
             </div>
           </div>
         )}
-      </nav>
 
-      {/* Overlay for mobile menu */}
-      {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-300"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+        {/* Overlay for mobile menu */}
+        {mobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-300"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+      </nav>
     </>
   );
 };

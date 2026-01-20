@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
 import Navbar from '../components/Navbar';
@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
 import { 
-  Upload, Download, Eye, Sparkles, X
+  Upload, Download, Eye, Sparkles, X,
+  ArrowLeft
 } from 'lucide-react';
 
 // List of available pre-loaded logos from your uploads
@@ -257,6 +258,7 @@ const QRDesigner = ({ user }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [initialDesignLoaded, setInitialDesignLoaded] = useState(false);
   
+  const location = useLocation();
   const [design, setDesign] = useState({
     foreground_color: '#000000',
     background_color: '#FFFFFF',
@@ -282,6 +284,13 @@ const QRDesigner = ({ user }) => {
   const shouldUpdatePreview = useRef(true);
   const previewTimeoutRef = useRef(null);
 
+  const handleBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1); // Go back in history
+    } else {
+      navigate(fallbackPath); // Go to dashboard/home
+    }
+  };
   const updatePreview = useCallback(async () => {
     if (!shouldUpdatePreview.current || !qrData?.signature) {
       return;
@@ -742,6 +751,14 @@ const QRDesigner = ({ user }) => {
 
       <main className="container mx-auto px-4 md:px-8 lg:px-12 py-8">
         <div className="max-w-7xl mx-auto">
+           <Button 
+      variant="outline"
+      onClick={handleBack}
+      className="flex items-center gap-2"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back
+    </Button>
           <div className="flex items-center justify-between mb-8">
             <h1 className="font-heading font-bold text-4xl" data-testid="designer-title">
               Design QR Code

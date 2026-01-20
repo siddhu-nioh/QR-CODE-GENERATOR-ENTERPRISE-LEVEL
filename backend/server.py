@@ -865,6 +865,50 @@ async def get_qr_code(qr_id: str, user: dict = Depends(get_current_user)):
     
     return QRCode(**qr)
 
+@api_router.put("/auth/update-profile")
+async def update_user_profile(
+    request: Request,
+    user: dict = Depends(get_current_user)
+):
+    """Update user profile information"""
+    try:
+        body = await request.json()
+        update_data = {}
+        
+        # Only allow certain fields to be updated
+        allowed_fields = ["name", "picture"]
+        
+        for field in allowed_fields:
+            if field in body:
+                update_data[field] = body[field]
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No valid fields to update")
+        
+        # Update in database
+        await db.users.update_one(
+            {"user_id": user["user_id"]},
+            {"$set": update_data}
+        )
+        
+        # Get updated user
+        updated_user = await db.users.find_one(
+            {"user_id": user["user_id"]},
+            {"_id": 0, "password": 0}
+        )
+        
+        return {
+            "message": "Profile updated successfully",
+            "user": updated_user
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+
+        
 @api_router.put("/qr-codes/{qr_id}", response_model=QRCode)
 async def update_qr_code(qr_id: str, update_data: QRCodeUpdate, user: dict = Depends(get_current_user)):
     qr = await db.qr_codes.find_one({"qr_id": qr_id, "user_id": user["user_id"]}, {"_id": 0})

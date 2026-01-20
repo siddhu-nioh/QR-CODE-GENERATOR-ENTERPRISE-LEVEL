@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
 import Navbar from '../components/Navbar';
@@ -34,7 +34,8 @@ import {
   Eye,
   Upload,
   Building,
-  Hash
+  Hash,
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -44,7 +45,7 @@ const QRGenerator = ({ user }) => {
   const [showDesign, setShowDesign] = useState(false);
   const [qrType, setQrType] = useState('url');
   const [name, setName] = useState('');
-  
+  const location = useLocation();
   // Initialize content matching BACKEND field names
   const [content, setContent] = useState({
     url: '',
@@ -126,6 +127,13 @@ const QRGenerator = ({ user }) => {
     setDesign(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1); // Go back in history
+    } else {
+      navigate(fallbackPath); // Go to dashboard/home
+    }
+  };
   const handleLogoUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -651,7 +659,14 @@ const QRGenerator = ({ user }) => {
 
       <main className="container mx-auto py-10 max-w-6xl">
         <h1 className="text-4xl font-bold mb-6">Create QR Code</h1>
-
+ <Button 
+      variant="outline"
+      onClick={handleBack}
+      className="flex items-center gap-2"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back
+    </Button>
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column: QR Creation Form */}
           <Card className="p-8">

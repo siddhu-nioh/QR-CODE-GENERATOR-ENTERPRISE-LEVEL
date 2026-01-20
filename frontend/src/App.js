@@ -26,6 +26,7 @@ import SecurityPage from './pages/SecurityPage';
 
 import './App.css';
 import { useEffect, useState } from 'react';
+import AccountPage from './pages/AccountPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -111,6 +112,12 @@ function App() {
               <QRGenerator />
             </ProtectedRoute>
           } />
+
+          <Route path="/account" element={
+            <ProtectedRoute>
+            <AccountPage user={user} />
+            </ProtectedRoute>
+            } />
           <Route path="/designer/:qrId" element={
             <ProtectedRoute>
               <QRDesigner />

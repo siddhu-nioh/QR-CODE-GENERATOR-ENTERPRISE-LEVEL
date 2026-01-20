@@ -37,6 +37,50 @@ const PRELOADED_LOGOS = [
   { id: 'youtube', name: 'YouTube', filename: 'youtube.png', path: '/assets/logos/youtube.png' }
 ];
 
+// Cache for preloaded logos base64 data
+const preloadedLogoCache = {};
+
+// Function to convert image to base64
+const imageToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+};
+
+// Function to fetch preloaded logo as base64
+const fetchPreloadedLogoAsBase64 = async (logoId) => {
+  // Return from cache if available
+  if (preloadedLogoCache[logoId]) {
+    return preloadedLogoCache[logoId];
+  }
+
+  try {
+    const logoInfo = PRELOADED_LOGOS.find(logo => logo.id === logoId);
+    if (!logoInfo) return null;
+
+    // Fetch the logo image
+    const response = await fetch(logoInfo.path);
+    if (!response.ok) throw new Error('Failed to fetch logo');
+    
+    const blob = await response.blob();
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+    
+    // Cache the result
+    preloadedLogoCache[logoId] = base64;
+    return base64;
+  } catch (error) {
+    console.error('Error fetching preloaded logo:', error);
+    return null;
+  }
+};
+
 // Default design templates
 const getDefaultTemplates = () => {
   return {
@@ -238,174 +282,113 @@ const QRDesigner = ({ user }) => {
   const shouldUpdatePreview = useRef(true);
   const previewTimeoutRef = useRef(null);
 
-  // Convert image file to base64
-  const imageToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  // const updatePreview = useCallback(async () => {
-  //   if (!shouldUpdatePreview.current || !qrData?.signature) {
-  //     return;
-  //   }
-
-  //   try {
-  //     const sig = qrData.signature;
-  //     const params = new URLSearchParams({
-  //       sig: sig,
-  //       t: Date.now(),
-  //       fg: design.foreground_color.replace('#', ''),
-  //       bg: design.background_color.replace('#', ''),
-  //       style: design.pattern_style,
-  //       ec: design.error_correction
-  //     });
-
-  //     // Add gradient parameters if enabled
-  //     if (design.gradient_enabled) {
-  //       params.append('gradient', 'true');
-  //       params.append('g1', design.gradient_color1.replace('#', ''));
-  //       params.append('g2', design.gradient_color2.replace('#', ''));
-  //       params.append('gtype', design.gradient_type);
-  //       params.append('gdir', design.gradient_direction);
-  //     }
-
-  //     // Add frame parameters
-  //     if (design.frame_style !== 'none') {
-  //       params.append('frame', design.frame_style);
-  //       params.append('fc', design.frame_color.replace('#', ''));
-  //       if (design.frame_text) {
-  //         params.append('ftext', encodeURIComponent(design.frame_text));
-  //       }
-  //     }
-
-  //     // Add logo parameters
-  //     if (design.logo_type !== 'none') {
-  //       params.append('logo', 'true');
-  //       if (design.logo_type === 'preloaded' && design.template_logo) {
-  //         params.append('logo_type', 'preloaded');
-  //         params.append('logo_name', design.template_logo);
-  //       } else if (design.logo_type === 'custom' && design.logo_data) {
-  //         params.append('logo_type', 'custom');
-  //         params.append('logo_data', encodeURIComponent(design.logo_data));
-  //       }
-  //     }
-
-  //     // Add template key if exists
-  //     if (design.template_key) {
-  //       params.append('template_key', design.template_key);
-  //     }
-
-  //     const previewUrl = `${API}/public/qr/${qrId}/image?${params.toString()}`;
-  //     setPreviewUrl(previewUrl);
-      
-  //   } catch (error) {
-  //     console.error('Error updating preview:', error);
-  //     setPreviewUrl(null);
-  //   }
-  // }, [qrId, qrData, design]);
-const updatePreview = useCallback(async () => {
-  if (!shouldUpdatePreview.current || !qrData?.signature) {
-    return;
-  }
-
-  try {
-    const sig = qrData.signature;
-    const params = new URLSearchParams({
-      sig: sig,
-      t: Date.now()
-    });
-
-    // Add basic design parameters
-    if (design.foreground_color) {
-      params.append('fg', design.foreground_color.replace('#', ''));
-    }
-    if (design.background_color) {
-      params.append('bg', design.background_color.replace('#', ''));
-    }
-    if (design.pattern_style) {
-      params.append('style', design.pattern_style);
-    }
-    if (design.error_correction) {
-      params.append('ec', design.error_correction);
+  const updatePreview = useCallback(async () => {
+    if (!shouldUpdatePreview.current || !qrData?.signature) {
+      return;
     }
 
-    // Add gradient parameters
-    if (design.gradient_enabled) {
-      params.append('gradient', 'true');
-      if (design.gradient_color1) {
-        params.append('g1', design.gradient_color1.replace('#', ''));
-      }
-      if (design.gradient_color2) {
-        params.append('g2', design.gradient_color2.replace('#', ''));
-      }
-      if (design.gradient_type) {
-        params.append('gtype', design.gradient_type);
-      }
-      if (design.gradient_direction) {
-        params.append('gdir', design.gradient_direction);
-      }
-    }
-
-    // Add frame parameters
-    if (design.frame_style && design.frame_style !== 'none') {
-      params.append('frame', design.frame_style);
-      if (design.frame_color) {
-        params.append('fc', design.frame_color.replace('#', ''));
-      }
-      if (design.frame_text) {
-        params.append('ftext', encodeURIComponent(design.frame_text));
-      }
-    }
-
-    // Add logo parameters
-    if (design.logo_type !== 'none') {
-      params.append('logo', 'true');
-      params.append('logo_type', design.logo_type);
-      
-      if (design.logo_type === 'preloaded' && design.template_logo) {
-        params.append('logo_name', design.template_logo);
-      } else if (design.logo_type === 'custom' && design.logo_data) {
-        // Send only part after comma for base64
-        const base64Data = design.logo_data.split(',')[1] || design.logo_data;
-        params.append('logo_data', encodeURIComponent(base64Data));
-      }
-    }
-
-    // Add template key if exists
-    if (design.template_key) {
-      params.append('template_key', design.template_key);
-    }
-
-    const previewUrl = `${API}/public/qr/${qrId}/image?${params.toString()}`;
-    setPreviewUrl(previewUrl);
-    
-  } catch (error) {
-    console.error('Error updating preview:', error);
-    // Fallback to static image
-    const fallbackUrl = `${API}/public/qr/${qrId}/image?sig=${qrData.signature}`;
-    setPreviewUrl(fallbackUrl);
-  }
-}, [qrId, qrData, design]);
-
-useEffect(() => {
-  const fetchTemplates = async () => {
     try {
-      const response = await axios.get(`${API}/design-templates`);
-      if (response.data?.templates) {
-        setTemplates(response.data.templates);
+      const sig = qrData.signature;
+      const params = new URLSearchParams({
+        sig: sig,
+        t: Date.now()
+      });
+
+      // Add basic design parameters
+      if (design.foreground_color) {
+        params.append('fg', design.foreground_color.replace('#', ''));
       }
+      if (design.background_color) {
+        params.append('bg', design.background_color.replace('#', ''));
+      }
+      if (design.pattern_style) {
+        params.append('style', design.pattern_style);
+      }
+      if (design.error_correction) {
+        params.append('ec', design.error_correction);
+      }
+
+      // Add gradient parameters
+      if (design.gradient_enabled) {
+        params.append('gradient', 'true');
+        if (design.gradient_color1) {
+          params.append('g1', design.gradient_color1.replace('#', ''));
+        }
+        if (design.gradient_color2) {
+          params.append('g2', design.gradient_color2.replace('#', ''));
+        }
+        if (design.gradient_type) {
+          params.append('gtype', design.gradient_type);
+        }
+        if (design.gradient_direction) {
+          params.append('gdir', design.gradient_direction);
+        }
+      }
+
+      // Add frame parameters
+      if (design.frame_style && design.frame_style !== 'none') {
+        params.append('frame', design.frame_style);
+        if (design.frame_color) {
+          params.append('fc', design.frame_color.replace('#', ''));
+        }
+        if (design.frame_text) {
+          params.append('ftext', encodeURIComponent(design.frame_text));
+        }
+      }
+
+      // Add logo parameters
+      if (design.logo_type !== 'none') {
+        params.append('logo', 'true');
+        params.append('logo_type', design.logo_type);
+        
+        if (design.logo_type === 'preloaded' && design.template_logo) {
+          // For preloaded logos, send the logo name
+          params.append('logo_name', design.template_logo);
+          
+          // Also send the logo data if we have it cached
+          const cachedLogo = preloadedLogoCache[design.template_logo];
+          if (cachedLogo) {
+            const base64Data = cachedLogo.split(',')[1] || cachedLogo;
+            params.append('logo_data', encodeURIComponent(base64Data));
+          }
+        } else if (design.logo_type === 'custom' && design.logo_data) {
+          // Send only part after comma for base64
+          const base64Data = design.logo_data.split(',')[1] || design.logo_data;
+          params.append('logo_data', encodeURIComponent(base64Data));
+        }
+      }
+
+      // Add template key if exists
+      if (design.template_key) {
+        params.append('template_key', design.template_key);
+      }
+
+      const previewUrl = `${API}/public/qr/${qrId}/image?${params.toString()}`;
+      setPreviewUrl(previewUrl);
+      
     } catch (error) {
-      console.warn('Failed to fetch templates, using defaults:', error);
-      setTemplates(getDefaultTemplates());
+      console.error('Error updating preview:', error);
+      // Fallback to static image
+      const fallbackUrl = `${API}/public/qr/${qrId}/image?sig=${qrData.signature}`;
+      setPreviewUrl(fallbackUrl);
     }
-  };
-  
-  fetchTemplates();
-}, []);
+  }, [qrId, qrData, design]);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const response = await axios.get(`${API}/design-templates`);
+        if (response.data?.templates) {
+          setTemplates(response.data.templates);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch templates, using defaults:', error);
+        setTemplates(getDefaultTemplates());
+      }
+    };
+    
+    fetchTemplates();
+  }, []);
 
   const fetchQRCode = useCallback(async () => {
     try {
@@ -447,11 +430,9 @@ useEffect(() => {
         setSelectedTemplateKey(initialDesign.template_key);
       }
       
-      // Handle custom logo URL
+      // Handle logo data
       if (initialDesign.logo_type === 'custom' && initialDesign.logo_data) {
         try {
-          // For custom logos, we already have base64 in logo_data
-          // No need to create object URL unless it's for preview only
           initialDesign.custom_logo_url = initialDesign.logo_data;
         } catch (error) {
           console.warn('Could not process custom logo:', error);
@@ -460,6 +441,12 @@ useEffect(() => {
         const logoInfo = PRELOADED_LOGOS.find(logo => logo.id === initialDesign.template_logo);
         if (logoInfo) {
           initialDesign.custom_logo_url = logoInfo.path;
+          
+          // Fetch and cache the preloaded logo as base64
+          const base64Logo = await fetchPreloadedLogoAsBase64(initialDesign.template_logo);
+          if (base64Logo) {
+            initialDesign.logo_data = base64Logo;
+          }
         }
       }
       
@@ -467,16 +454,6 @@ useEffect(() => {
       shouldUpdatePreview.current = false;
       setDesign(initialDesign);
       setInitialDesignLoaded(true);
-      
-      // Load design templates from API
-      try {
-        const templatesRes = await axios.get(`${API}/design-templates`);
-        if (templatesRes.data?.templates) {
-          setTemplates(templatesRes.data.templates);
-        }
-      } catch (error) {
-        console.warn('Using default templates:', error);
-      }
       
     } catch (error) {
       console.error('Error fetching QR code:', error);
@@ -528,7 +505,7 @@ useEffect(() => {
     });
   };
 
-  const handleTemplateSelect = (templateKey) => {
+  const handleTemplateSelect = async (templateKey) => {
     const template = templates[templateKey];
     if (template) {
       setSelectedTemplateKey(templateKey);
@@ -546,11 +523,17 @@ useEffect(() => {
         }
       });
       
-      // If template has preloaded logo, set the custom logo URL for preview
+      // If template has preloaded logo, fetch it as base64
       if (template.logo_type === 'preloaded' && template.template_logo) {
         const logoInfo = PRELOADED_LOGOS.find(logo => logo.id === template.template_logo);
         if (logoInfo) {
           newDesign.custom_logo_url = logoInfo.path;
+          
+          // Fetch and cache the preloaded logo as base64
+          const base64Logo = await fetchPreloadedLogoAsBase64(template.template_logo);
+          if (base64Logo) {
+            newDesign.logo_data = base64Logo;
+          }
         }
       } else if (template.logo_type === 'none') {
         newDesign.custom_logo_url = null;
@@ -562,16 +545,19 @@ useEffect(() => {
     }
   };
 
-  const handlePreloadedLogoSelect = (logoId) => {
+  const handlePreloadedLogoSelect = async (logoId) => {
     const logoInfo = PRELOADED_LOGOS.find(logo => logo.id === logoId);
     if (!logoInfo) return;
 
+    // Fetch the preloaded logo as base64
+    const base64Logo = await fetchPreloadedLogoAsBase64(logoId);
+    
     setDesign(prev => ({
       ...prev,
       logo_type: 'preloaded',
       template_logo: logoId,
-      logo_data: null,
-      custom_logo_url: logoInfo.path,
+      logo_data: base64Logo, // Store as base64 for backend
+      custom_logo_url: logoInfo.path, // Use path for frontend preview
       icon_logo: null,
       template_key: null
     }));
@@ -628,115 +614,72 @@ useEffect(() => {
     toast.success('Logo removed');
   };
 
-  // const handleSave = async () => {
-  //   try {
-  //     setIsSaving(true);
-  //     const token = localStorage.getItem('session_token');
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      const token = localStorage.getItem('session_token');
       
-  //     // Prepare design for saving
-  //     const designToSave = { ...design };
+      // Prepare design for saving - clone and clean
+      const designToSave = { ...design };
       
-  //     // Remove preview-only properties
-  //     delete designToSave.custom_logo_url;
+      // Remove frontend-only properties
+      delete designToSave.custom_logo_url;
       
-  //     // If logo_type is custom and logo_data is base64, ensure it's properly formatted
-  //     if (designToSave.logo_type === 'custom' && designToSave.logo_data) {
-  //       // Ensure logo_data is a string
-  //       if (typeof designToSave.logo_data !== 'string') {
-  //         designToSave.logo_data = String(designToSave.logo_data);
-  //       }
-  //     }
-      
-  //     // If logo_type is none, clear logo-related fields
-  //     if (designToSave.logo_type === 'none') {
-  //       designToSave.logo_data = null;
-  //       designToSave.template_logo = null;
-  //       designToSave.icon_logo = null;
-  //     }
-      
-  //     await axios.put(
-  //       `${API}/qr-codes/${qrId}`,
-  //       { design: designToSave },
-  //       { headers: { Authorization: `Bearer ${token}` } }
-  //     );
-      
-  //     toast.success('QR code design updated successfully!');
-      
-  //     // Update QR data to get new signature if needed
-  //     const updatedResponse = await axios.get(`${API}/qr-codes/${qrId}`, {
-  //       headers: { Authorization: `Bearer ${token}` }
-  //     });
-      
-  //     setQrData(updatedResponse.data);
-      
-  //     // Navigate back to dashboard after a brief delay
-  //     setTimeout(() => {
-  //       navigate('/dashboard');
-  //     }, 1500);
-      
-  //   } catch (error) {
-  //     console.error('Error updating QR code:', error);
-  //     toast.error('Failed to update design. Please try again.');
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // };
-const handleSave = async () => {
-  try {
-    setIsSaving(true);
-    const token = localStorage.getItem('session_token');
-    
-    // Prepare design for saving - clone and clean
-    const designToSave = { ...design };
-    
-    // Remove frontend-only properties
-    delete designToSave.custom_logo_url;
-    
-    // Clean up logo data
-    if (designToSave.logo_type === 'custom' && designToSave.logo_data) {
-      // Ensure it's properly formatted base64
-      if (!designToSave.logo_data.startsWith('data:')) {
-        designToSave.logo_data = `data:image/png;base64,${designToSave.logo_data}`;
+      // Handle logo data for preloaded logos
+      if (designToSave.logo_type === 'preloaded' && designToSave.template_logo && !designToSave.logo_data) {
+        // Fetch logo data if not already present
+        const base64Logo = await fetchPreloadedLogoAsBase64(designToSave.template_logo);
+        if (base64Logo) {
+          designToSave.logo_data = base64Logo;
+        }
       }
-    } else if (designToSave.logo_type === 'none') {
-      // Clear logo fields if no logo
-      designToSave.logo_data = null;
-      designToSave.template_logo = null;
+      
+      // Clean up logo data format
+      if (designToSave.logo_data) {
+        // Ensure it's properly formatted base64
+        if (!designToSave.logo_data.startsWith('data:')) {
+          designToSave.logo_data = `data:image/png;base64,${designToSave.logo_data}`;
+        }
+      } else if (designToSave.logo_type === 'none') {
+        // Clear logo fields if no logo
+        designToSave.logo_data = null;
+        designToSave.template_logo = null;
+      }
+      
+      // Remove any undefined values
+      Object.keys(designToSave).forEach(key => {
+        if (designToSave[key] === undefined || designToSave[key] === null) {
+          delete designToSave[key];
+        }
+      });
+      
+      await axios.put(
+        `${API}/qr-codes/${qrId}`,
+        { design: designToSave },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success('QR code design updated successfully!');
+      
+      // Refresh QR data to get new signature
+      const updatedResponse = await axios.get(`${API}/qr-codes/${qrId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setQrData(updatedResponse.data);
+      
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error updating QR code:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update design. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
-    
-    // Remove any undefined values
-    Object.keys(designToSave).forEach(key => {
-      if (designToSave[key] === undefined || designToSave[key] === null) {
-        delete designToSave[key];
-      }
-    });
-    
-    await axios.put(
-      `${API}/qr-codes/${qrId}`,
-      { design: designToSave },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    
-    toast.success('QR code design updated successfully!');
-    
-    // Refresh QR data to get new signature
-    const updatedResponse = await axios.get(`${API}/qr-codes/${qrId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    setQrData(updatedResponse.data);
-    
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 1500);
-    
-  } catch (error) {
-    console.error('Error updating QR code:', error);
-    toast.error(error.response?.data?.detail || 'Failed to update design. Please try again.');
-  } finally {
-    setIsSaving(false);
-  }
-};
+  };
+
   useEffect(() => {
     return () => {
       // Clean up timeouts
@@ -863,6 +806,7 @@ const handleSave = async () => {
                             onChange={(e) => handleDesignChange('foreground_color', e.target.value)}
                             className="w-16 h-10"
                             data-testid="fg-color-input"
+                            disabled={design.gradient_enabled}
                           />
                           <Input
                             type="text"
@@ -870,8 +814,14 @@ const handleSave = async () => {
                             onChange={(e) => handleDesignChange('foreground_color', e.target.value)}
                             className="flex-1"
                             data-testid="fg-color-text"
+                            disabled={design.gradient_enabled}
                           />
                         </div>
+                        {design.gradient_enabled && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Disabled when gradient is enabled
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -884,6 +834,7 @@ const handleSave = async () => {
                             onChange={(e) => handleDesignChange('background_color', e.target.value)}
                             className="w-16 h-10"
                             data-testid="bg-color-input"
+                            disabled={design.gradient_enabled}
                           />
                           <Input
                             type="text"
@@ -891,8 +842,14 @@ const handleSave = async () => {
                             onChange={(e) => handleDesignChange('background_color', e.target.value)}
                             className="flex-1"
                             data-testid="bg-color-text"
+                            disabled={design.gradient_enabled}
                           />
                         </div>
+                        {design.gradient_enabled && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Disabled when gradient is enabled
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -1139,14 +1096,25 @@ const handleSave = async () => {
                                 
                                 <div className="text-sm text-muted-foreground space-y-1">
                                   <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: template.foreground_color }} />
-                                      <span className="text-xs">Foreground</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: template.background_color }} />
-                                      <span className="text-xs">Background</span>
-                                    </div>
+                                    {template.gradient_enabled ? (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-3 h-3 rounded-sm" style={{ 
+                                          background: `linear-gradient(45deg, ${template.gradient_color1}, ${template.gradient_color2})`
+                                        }} />
+                                        <span className="text-xs">Gradient</span>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: template.foreground_color }} />
+                                          <span className="text-xs">Foreground</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: template.background_color }} />
+                                          <span className="text-xs">Background</span>
+                                        </div>
+                                      </>
+                                    )}
                                     <div className="flex items-center gap-1">
                                       <div className="w-3 h-3 rounded-sm border">
                                         <div className={`w-full h-full ${
@@ -1160,15 +1128,6 @@ const handleSave = async () => {
                                       <span className="text-xs capitalize">{template.pattern_style}</span>
                                     </div>
                                   </div>
-                                  
-                                  {template.gradient_enabled && (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-3 h-3 rounded-sm" style={{ 
-                                        background: `linear-gradient(45deg, ${template.gradient_color1}, ${template.gradient_color2})`
-                                      }} />
-                                      <span className="text-xs">Gradient enabled</span>
-                                    </div>
-                                  )}
                                   
                                   {hasLogo && (
                                     <div className="text-xs flex items-center gap-1">
@@ -1271,205 +1230,237 @@ const handleSave = async () => {
                               <Select 
                                 value={design.gradient_direction} 
                                 onValueChange={(v) => handleDesignChange('gradient_direction', v)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="horizontal">Horizontal</SelectItem>
-                                <SelectItem value="vertical">Vertical</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="horizontal">Horizontal</SelectItem>
+                                  <SelectItem value="vertical">Vertical</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </Card>
+
+              {/* Current Design Summary */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Current Design Summary
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pattern:</span>
+                    <span className="font-medium capitalize">{design.pattern_style}</span>
+                  </div>
+                  
+                  {design.gradient_enabled ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Gradient:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm" style={{ 
+                            background: `linear-gradient(45deg, ${design.gradient_color1}, ${design.gradient_color2})`
+                          }} />
+                          <span className="font-medium">Enabled</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Color 1:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: design.gradient_color1 }} />
+                          <span>{design.gradient_color1}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Color 2:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: design.gradient_color2 }} />
+                          <span>{design.gradient_color2}</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Foreground:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: design.foreground_color }} />
+                          <span>{design.foreground_color}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Background:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: design.background_color }} />
+                          <span>{design.background_color}</span>
+                        </div>
                       </div>
                     </>
                   )}
-                </TabsContent>
-              </Tabs>
-            </Card>
-
-            {/* Current Design Summary */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Current Design Summary
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Pattern:</span>
-                  <span className="font-medium capitalize">{design.pattern_style}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Foreground:</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: design.foreground_color }} />
-                    <span>{design.foreground_color}</span>
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Background:</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm border" style={{ backgroundColor: design.background_color }} />
-                    <span>{design.background_color}</span>
-                  </div>
-                </div>
-                {design.logo_type !== 'none' && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Logo:</span>
-                    <div className="flex items-center gap-2">
-                      {design.logo_type === 'custom' && (
-                        <span className="font-medium">Custom Logo</span>
-                      )}
-                      {design.logo_type === 'preloaded' && design.template_logo && (
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.path || '/assets/logos/default.png'} 
-                            alt="Logo" 
-                            className="w-6 h-6 object-contain"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                          <span className="font-medium">
-                            {PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.name || 'Logo'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {selectedTemplateKey && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Template:</span>
-                    <span className="font-medium">{templates[selectedTemplateKey]?.name}</span>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-
-          {/* Preview Section */}
-          <div className="space-y-6">
-            <Card className="p-6 sticky top-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-heading font-semibold text-2xl flex items-center gap-2">
-                  <Eye className="h-6 w-6" />
-                  Live Preview
-                </h2>
-                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-              </div>
-              
-              <div className="aspect-square bg-secondary/20 rounded-xl flex items-center justify-center p-8 relative border border-border">
-                {previewUrl ? (
-                  <div className="relative w-full h-full">
-                    <img
-                      src={previewUrl}
-                      alt="QR Code Preview"
-                      className="w-full h-full object-contain"
-                      key={previewUrl}
-                      data-testid="qr-preview-image"
-                      onError={(e) => {
-                        console.error('Preview image failed to load');
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="relative w-full h-full">
-                    {/* Fallback QR Pattern Preview */}
-                    <div 
-                      className="w-full h-full rounded-lg relative"
-                      style={{
-                        backgroundColor: design.background_color,
-                        backgroundImage: design.gradient_enabled 
-                          ? `linear-gradient(${design.gradient_direction === 'horizontal' ? '90deg' : '0deg'}, ${design.gradient_color1}, ${design.gradient_color2})`
-                          : undefined
-                      }}
-                    >
-                      {/* QR Pattern Simulation */}
-                      <div className="absolute inset-4 grid grid-cols-11 grid-rows-11 gap-1">
-                        {Array.from({ length: 121 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`
-                              ${design.pattern_style === 'rounded' ? 'rounded-[3px]' : ''}
-                              ${design.pattern_style === 'dots' || design.pattern_style === 'circle' ? 'rounded-full' : ''}
-                              ${design.pattern_style === 'gapped' ? 'm-0.5' : ''}
-                            `}
-                            style={{
-                              backgroundColor: design.foreground_color,
-                              opacity: Math.random() > 0.3 ? 0.9 : 0.3
-                            }}
-                          />
-                        ))}
+                  
+                  {design.logo_type !== 'none' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Logo:</span>
+                      <div className="flex items-center gap-2">
+                        {design.logo_type === 'custom' && (
+                          <span className="font-medium">Custom Logo</span>
+                        )}
+                        {design.logo_type === 'preloaded' && design.template_logo && (
+                          <div className="flex items-center gap-2">
+                            <img 
+                              src={PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.path || '/assets/logos/default.png'} 
+                              alt="Logo" 
+                              className="w-6 h-6 object-contain"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                            <span className="font-medium">
+                              {PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.name || 'Logo'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      
-                      {/* Center Logo Display */}
-                      {getCurrentLogoDisplay()}
                     </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Design Info */}
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">QR Code ID:</span>
-                  <code className="bg-muted px-2 py-1 rounded text-xs font-mono">{qrId}</code>
+                  )}
+                  {selectedTemplateKey && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Template:</span>
+                      <span className="font-medium">{templates[selectedTemplateKey]?.name}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* Preview Section */}
+            <div className="space-y-6">
+              <Card className="p-6 sticky top-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-heading font-semibold text-2xl flex items-center gap-2">
+                    <Eye className="h-6 w-6" />
+                    Live Preview
+                  </h2>
+                  <Sparkles className="h-5 w-5 text-primary animate-pulse" />
                 </div>
                 
-                {selectedTemplateKey && templates[selectedTemplateKey] && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Template:</span>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
-                      <span className="font-medium">{templates[selectedTemplateKey].name}</span>
+                <div className="aspect-square bg-secondary/20 rounded-xl flex items-center justify-center p-8 relative border border-border">
+                  {previewUrl ? (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={previewUrl}
+                        alt="QR Code Preview"
+                        className="w-full h-full object-contain"
+                        key={previewUrl}
+                        data-testid="qr-preview-image"
+                        onError={(e) => {
+                          console.error('Preview image failed to load');
+                          e.target.style.display = 'none';
+                        }}
+                      />
                     </div>
-                  </div>
-                )}
-                
-                {design.logo_type === 'custom' && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Logo:</span>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
-                      <Upload className="w-3 h-3" />
-                      <span className="font-medium">Custom Upload</span>
+                  ) : (
+                    <div className="relative w-full h-full">
+                      {/* Fallback QR Pattern Preview */}
+                      <div 
+                        className="w-full h-full rounded-lg relative"
+                        style={{
+                          backgroundColor: design.background_color,
+                          backgroundImage: design.gradient_enabled 
+                            ? `linear-gradient(${design.gradient_direction === 'horizontal' ? '90deg' : '0deg'}, ${design.gradient_color1}, ${design.gradient_color2})`
+                            : undefined
+                        }}
+                      >
+                        {/* QR Pattern Simulation */}
+                        <div className="absolute inset-4 grid grid-cols-11 grid-rows-11 gap-1">
+                          {Array.from({ length: 121 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className={`
+                                ${design.pattern_style === 'rounded' ? 'rounded-[3px]' : ''}
+                                ${design.pattern_style === 'dots' || design.pattern_style === 'circle' ? 'rounded-full' : ''}
+                                ${design.pattern_style === 'gapped' ? 'm-0.5' : ''}
+                              `}
+                              style={{
+                                backgroundColor: design.foreground_color,
+                                opacity: Math.random() > 0.3 ? 0.9 : 0.3
+                              }}
+                            />
+                          ))}
+                        </div>
+                        
+                        {/* Center Logo Display */}
+                        {getCurrentLogoDisplay()}
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                {design.logo_type === 'preloaded' && design.template_logo && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
-                    <img 
-                      src={PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.path || '/assets/logos/default.png'} 
-                      alt="" 
-                      className="w-4 h-4 object-contain"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                    <span className="font-medium">
-                      {PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.name || 'Preloaded Logo'}
-                    </span>
-                  </div>
-                )}
-                
-                <div className="pt-2">
-                  <p className="text-xs text-muted-foreground">
-                    {previewUrl 
-                      ? '✨ Live preview updates as you customize. Click Save to apply changes.' 
-                      : 'Preview shows current design. Changes are saved locally until you click Save.'}
-                  </p>
+                  )}
                 </div>
-              </div>
-            </Card>
+                
+                {/* Design Info */}
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">QR Code ID:</span>
+                    <code className="bg-muted px-2 py-1 rounded text-xs font-mono">{qrId}</code>
+                  </div>
+                  
+                  {selectedTemplateKey && templates[selectedTemplateKey] && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Template:</span>
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
+                        <span className="font-medium">{templates[selectedTemplateKey].name}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {design.logo_type === 'custom' && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Logo:</span>
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
+                        <Upload className="w-3 h-3" />
+                        <span className="font-medium">Custom Upload</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {design.logo_type === 'preloaded' && design.template_logo && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
+                      <img 
+                        src={PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.path || '/assets/logos/default.png'} 
+                        alt="" 
+                        className="w-4 h-4 object-contain"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      <span className="font-medium">
+                        {PRELOADED_LOGOS.find(l => l.id === design.template_logo)?.name || 'Preloaded Logo'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="pt-2">
+                    <p className="text-xs text-muted-foreground">
+                      {previewUrl 
+                        ? '✨ Live preview updates as you customize. Click Save to apply changes.' 
+                        : 'Preview shows current design. Changes are saved locally until you click Save.'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
-  </div>
+      </main>
+    </div>
   );
 };
 

@@ -788,36 +788,7 @@ async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
         logger.error(f"Error uploading logo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# @api_router.post("/upload-logo")
-# async def upload_logo(request: Request, user: dict = Depends(get_current_user)):
-#     """Upload logo for QR code"""
-#     try:
-#         form = await request.form()
-#         logo_file = form.get("logo")
-        
-#         if not logo_file:
-#             raise HTTPException(status_code=400, detail="No logo file provided")
-        
-#         # Read file content
-#         logo_content = await logo_file.read()
-        
-#         # Validate image
-#         try:
-#             img = Image.open(io.BytesIO(logo_content))
-#             img.verify()
-#         except:
-#             raise HTTPException(status_code=400, detail="Invalid image file")
-        
-#         # Convert to base64
-#         import base64
-#         logo_base64 = base64.b64encode(logo_content).decode('utf-8')
-#         logo_data_url = f"data:image/png;base64,{logo_base64}"
-        
-#         return {"logo_data": logo_data_url}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Error uploading logo: {e}")
+
 #         raise HTTPException(status_code=500, detail=str(e))
 
 # ========== QR CODE ROUTES ==========
